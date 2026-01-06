@@ -1,0 +1,18 @@
+﻿using System.Security.Claims;
+
+using GoKidAPI.Entity.Account.Identity;
+using GoKidAPI.Entity.Account.Users;
+
+namespace GoKidAPI.Services.TokenStore
+{
+    public interface ITokenStoreService
+    {
+        Task<string> CreateAccessTokenAsync(AppUser appUser);
+        string GenerateRefreshToken();
+        Task SaveRefreshTokenAsync(string userId, string refreshToken);
+        Task InvalidateOldTokensAsync(string userId);
+        Task<bool> IsValidAsync(string refreshToken);
+        string GenerateChildJwt(Child child);
+        //public Task<List<Claim>> UserClaims(AppUser user);
+    }
+}

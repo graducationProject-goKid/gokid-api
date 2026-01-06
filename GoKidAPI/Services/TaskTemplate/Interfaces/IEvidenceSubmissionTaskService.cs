@@ -1,0 +1,11 @@
+﻿using GoKidAPI.DTO.Tasks.Requests;
+using GoKidAPI.DTO.Tasks.Responses;
+using GoKidAPI.Shared;
+
+namespace GoKidAPI.Services.TaskTemplate.Interfaces
+{
+    public interface IEvidenceSubmissionTaskService
+    {
+        Task<Response<EvidenceSubmissionTaskResponse>> CreateAsync(CreateEvidenceSubmissionRequest request);
+    }
+}
