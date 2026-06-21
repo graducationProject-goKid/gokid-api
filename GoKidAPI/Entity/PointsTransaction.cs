@@ -13,6 +13,6 @@ namespace GoKidAPI.Entity
         public int Points { get; set; }
         public string Reason { get; set; } = null!;
         public PointsSourceType SourceType { get; set; }
-        public string? SourceEntityId { get; set; } // ChildTaskId or WeeklyAdventureId
+        public string? SourceEntityId { get; set; } // ChildTaskId or WeeklyAdventureId (ChildAdventureTaskId)
     }
 }

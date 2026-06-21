@@ -1,10 +1,13 @@
-﻿using GoKidAPI.Data;
+﻿using System.Text;
+
+using GoKidAPI.Data;
 using GoKidAPI.DTO.Account.Auth.Requests;
 using GoKidAPI.DTO.Account.Auth.Responses;
 using GoKidAPI.Entity.Account.Identity;
 using GoKidAPI.Entity.Account.Users;
 using GoKidAPI.Enums;
 using GoKidAPI.Helpers;
+using GoKidAPI.InfrastructreManage.Options;
 using GoKidAPI.Services.Email;
 using GoKidAPI.Services.ImageUploading;
 using GoKidAPI.Services.OTP;
@@ -12,12 +15,19 @@ using GoKidAPI.Services.TokenStore;
 using GoKidAPI.Shared;
 
 using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Identity.Data;
+using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Memory;
+using Microsoft.Extensions.Options;
+
+using QRCoder;
 
 namespace GoKidAPI.Services.Auth
 {
     public class AuthService : IAuthService
     {
+        private readonly IMemoryCache _memoryCache;
         private readonly UserManager<AppUser> _userManager;
         private readonly SignInManager<AppUser> _signInManager;
         private readonly ITokenStoreService _tokenService;
@@ -27,6 +37,8 @@ namespace GoKidAPI.Services.Auth
         private readonly ILogger<AuthService> _logger;
         private readonly ResponseHandler _responseHandler;
         private readonly IFileUploader _fileUploader;
+        private readonly RedirectLinksSettings _passwordResetSettings;
+
 
         public AuthService(
             UserManager<AppUser> userManager,
@@ -37,7 +49,8 @@ namespace GoKidAPI.Services.Auth
             AppDbContext context,
             ILogger<AuthService> logger,
             ResponseHandler responseHandler,
-            IFileUploader fileUploader)
+            IFileUploader fileUploader,
+            IOptions<RedirectLinksSettings> passwordResetSettings)
         {
             _userManager = userManager;
             _signInManager = signInManager;
@@ -48,8 +61,9 @@ namespace GoKidAPI.Services.Auth
             _logger = logger;
             _responseHandler = responseHandler;
             _fileUploader = fileUploader;
+            _passwordResetSettings = passwordResetSettings.Value;
         }
-        public async Task<Response<AuthResponse>> LoginAsync(LoginRequest request)
+        public async Task<Response<AuthResponse>> LoginAsync(DTO.Account.Auth.Requests.LoginRequest request)
         {
             try
             {
@@ -65,13 +79,13 @@ namespace GoKidAPI.Services.Auth
                     case UserType.PlatformAdmin:
                         user = await _userManager.FindByEmailAsync(request.Identifier);
                         if (user == null)
-                            return _responseHandler.Unauthorized<AuthResponse>("Invalid login credentials");
+                            return _responseHandler.BadRequest<AuthResponse>("Invalid login credentials");
 
                         if (user.UserType != request.LoginAs)
-                            return _responseHandler.Unauthorized<AuthResponse>("You are not authorized to login as this role");
+                            return _responseHandler.BadRequest<AuthResponse>("You are not authorized to login as this role");
 
                         if (!user.EmailConfirmed)
-                            return _responseHandler.Unauthorized<AuthResponse>("Please verify your email first");
+                            return _responseHandler.BadRequest<AuthResponse>("Please verify your email first");
 
                         if (string.IsNullOrEmpty(request.Password))
                             return _responseHandler.BadRequest<AuthResponse>("Password is required");
@@ -85,22 +99,45 @@ namespace GoKidAPI.Services.Auth
                         await _tokenService.InvalidateOldTokensAsync(user.Id);
                         await _tokenService.SaveRefreshTokenAsync(user.Id, refreshToken);
 
-                        var parentResp = new AuthResponse
+                        var parentResp = new AuthResponse();
+
+
+                        if (request.LoginAs == UserType.Parent)
                         {
-                            AccessToken = accessToken,
-                            RefreshToken = refreshToken,
-                            UserId = user.Id,
-                            DisplayName = user.DisplayName ?? user.Email!,
-                            Email = user.Email!,
-                            UserType = request.LoginAs.ToString()
-                        };
+                            var parent = await _context.Parents
+                                .Include(p => p.ActiveChild)
+                                .AsNoTracking()
+                                .FirstOrDefaultAsync(p => p.AppUserId == user.Id);
+
+
+                            parentResp.AccessToken = accessToken;
+                            parentResp.RefreshToken = refreshToken;
+                                parentResp.UserId = user.Id;
+                            parentResp.DisplayName = user.DisplayName ?? user.Email!;
+                            parentResp.Email = user.Email!;
+                            parentResp.UserType = request.LoginAs.ToString();
+                            parentResp.ChildId = parent.ActiveChildId;
+                            parentResp.ParentId = parent.Id;
+                            
+                        }
+                        else
+                        {
+                            parentResp.AccessToken = accessToken;
+                            parentResp.RefreshToken = refreshToken;
+                            parentResp.UserId = user.Id;
+                            parentResp.DisplayName = user.DisplayName ?? user.Email!;
+                            parentResp.Email = user.Email!;
+                            parentResp.UserType = request.LoginAs.ToString();
+                            
+                        }
+
 
                         return _responseHandler.Success(parentResp, "Login successful");
 
 
                     // 2. Child
                     case UserType.Child:
-                        if (request.Identifier.Length != 6 || !int.TryParse(request.Identifier, out _))
+                        if (request.Identifier.Length != 6)
                             return _responseHandler.BadRequest<AuthResponse>("Child code must be exactly 6 digits");
 
                         var child = await _context.Childrens
@@ -156,7 +193,6 @@ namespace GoKidAPI.Services.Auth
                     EmailConfirmed = false, // will be confirmed via OTP
                 };
 
-                await _userManager.AddToRoleAsync(user, UserType.Parent.ToString());
                 var result = await _userManager.CreateAsync(user, request.Password);
 
                 if (!result.Succeeded)
@@ -165,6 +201,7 @@ namespace GoKidAPI.Services.Auth
                     _logger.LogWarning("Register failed for {Email}: {Errors}", request.Email, errors);
                     return _responseHandler.BadRequest<string>(errors);
                 }
+                await _userManager.AddToRoleAsync(user, UserType.Parent.ToString());
 
                 // Create Parent Profile
                 var parent = new Parent
@@ -300,11 +337,16 @@ namespace GoKidAPI.Services.Auth
                     CreatedBy = parent.AppUserId,
                 };
 
+                // Set the new child as the active child for the parent
+                // Gharabawy : For MVP, we will allow only one child per parent
+                // , so we can directly set it as active without checking for existing active child
+                parent.ActiveChildId = child.Id;
+
                 _context.Childrens.Add(child);
                 await _context.SaveChangesAsync();
 
                 //var qrBase64 = IWWHelper.GenerateQrCodeBase64(code);
-                var qrBase64 = "qr-code-placeholder"; // Placeholder for QR code generation
+                var qrBase64 = IWWHelper.GenerateQrCodeBase64(code); ; // Placeholder for QR code generation
 
                 var responseDto = new CreateChildResponse
                 {
@@ -323,5 +365,357 @@ namespace GoKidAPI.Services.Auth
                 return _responseHandler.ServerError<CreateChildResponse>("Failed to create child");
             }
         }
+       
+        public async Task<Shared.Response<ForgetPasswordResponse>> ForgotPasswordAsync(ForgetPasswordRequest model, bool useOtp = true)
+        {
+            _logger.LogInformation("Starting ForgotPasswordAsync for Email: {Email}, UseOtp: {UseOtp}", model.Email, useOtp);
+
+            // Find user by email or phone number
+            AppUser? user = await FindUserByEmailAsync(model.Email);
+
+
+            if (user == null)
+            {
+                _logger.LogWarning("User not found for Email: {Email}", model.Email);
+                return _responseHandler.NotFound<ForgetPasswordResponse>("User not found.");
+            }
+
+            string otpOrLink = string.Empty;
+            try
+            {
+                if (useOtp)
+                {
+                    // OTP mode
+                    _logger.LogInformation("Generating OTP for UserId: {UserId}, Operation: forgot-password", user.Id);
+                    otpOrLink = await _otpService.GenerateAndStoreOtpAsync(user.Id, "forgot-password");
+                    await _emailService.SendResetPasswordEmailAsync(user.Email, "Reset Your GAHBIZ Password", user.DisplayName, otpOrLink, isOtp: true);
+                }
+                else
+                {
+                    // Link mode (using Identity token)
+                    _logger.LogInformation("User found with ID: {UserId}. Generating reset token for link...", user.Id);
+
+                    var token = await _userManager.GeneratePasswordResetTokenAsync(user);
+                    token = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(token)); // encode for URL
+
+                    // Dynamic setup for tokenLink
+                    // API link (direct reset)(for testing)
+                    var apiLink = $"{_passwordResetSettings.BackendBaseUrl}/api/reset-password?token={token}&userId={Uri.EscapeDataString(user.Id)}";
+
+                    // Frontend callback (when we have an UI for reseeting password)
+                    var callbackUrl = $"{_passwordResetSettings.ClientBaseUrl}/reset-password?token={token}&userId={Uri.EscapeDataString(user.Id)}";
+
+                    // choose between 2 links for confirmation link
+                    otpOrLink = apiLink;
+
+                    await _emailService.SendResetPasswordEmailAsync(user.Email, "Reset Your GO-KID Password", user.DisplayName, otpOrLink, isOtp: false); //Gharabawy TODO: link expiry longer
+                }
+
+                _logger.LogInformation("Reset {Mode} sent successfully to user ID: {UserId}", useOtp ? "OTP" : "link", user.Id);
+
+                var response = new ForgetPasswordResponse
+                {
+                    UserId = user.Id
+                };
+
+                return _responseHandler.Success(response, $"Reset instructions sent to your email. Please check your inbox.");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to send reset {Mode} to user ID: {UserId}", useOtp ? "OTP" : "link", user.Id);
+                return _responseHandler.InternalServerError<ForgetPasswordResponse>("Failed to send reset instructions.");
+            }
+        }
+        public async Task<Shared.Response<ResetPasswordResponse>> ResetPasswordAsync(DTO.Account.Auth.Requests.ResetPasswordRequest model, bool useOtp = true)
+        {
+            _logger.LogInformation("Starting ResetPasswordAsync for User ID: {UserId}, UseOtp: {UseOtp}", model.UserId, useOtp);
+
+            var user = await _userManager.FindByIdAsync(model.UserId);
+            if (user == null)
+            {
+                _logger.LogWarning("User not found with ID: {UserId}", model.UserId);
+                return _responseHandler.NotFound<ResetPasswordResponse>("User not found.");
+            }
+
+            if (useOtp)
+            {
+                _logger.LogInformation("Validating OTP for UserId: {UserId}, Operation: forgot-password", user.Id);
+                var isOtpValid = await _otpService.ValidateOtpAsync(model.UserId, model.Otp, "forgot-password");
+                if (!isOtpValid)
+                {
+                    _logger.LogWarning("Invalid or expired OTP for User ID: {UserId}", model.UserId);
+                    return _responseHandler.BadRequest<ResetPasswordResponse>("Invalid or expired OTP.");
+                }
+                _logger.LogInformation("Start reset Password for User ID: {UserId}", user.Id);
+
+                var result = await _userManager.RemovePasswordAsync(user);
+                _logger.LogInformation("Old Password deleted for User ID: {UserId}", user.Id);
+
+                await _userManager.AddPasswordAsync(user, model.NewPassword);
+                _logger.LogInformation("New Password Added for User ID: {UserId}", user.Id);
+            }
+            else
+            {
+                // Link mode: validate the token
+                var decodedToken = Encoding.UTF8.GetString(WebEncoders.Base64UrlDecode(model.Token));
+                var isValid = await _userManager.VerifyUserTokenAsync(
+                    user,
+                    _userManager.Options.Tokens.PasswordResetTokenProvider,
+                    "ResetPassword",
+                    decodedToken
+                );
+
+                if (!isValid)
+                {
+                    return _responseHandler.BadRequest<ResetPasswordResponse>("Invalid or expired reset link.");
+                }
+
+                // Reset password using the SAME decoded token
+                var result = await _userManager.ResetPasswordAsync(user, decodedToken, model.NewPassword);
+                if (!result.Succeeded)
+                {
+                    var errors = result.Errors.Select(e => e.Description).ToList();
+                    _logger.LogWarning("Password reset failed for User ID: {UserId}. Errors: {Errors}", user.Id, string.Join(", ", errors));
+                    return _responseHandler.BadRequest<ResetPasswordResponse>(string.Join(", ", errors));
+                }
+            }
+
+            _logger.LogInformation("Password reset succeeded for User ID: {UserId}. Invalidating old tokens...", user.Id);
+
+            // Invalidate all previous tokens for security
+            await _tokenService.InvalidateOldTokensAsync(user.Id);
+
+            var roles = await _userManager.GetRolesAsync(user);
+            var response = new ResetPasswordResponse
+            {
+                UserId = user.Id,
+                Email = user.Email,
+                Role = roles.FirstOrDefault()
+            };
+            _logger.LogInformation("ResetPasswordAsync completed successfully for User ID: {UserId}", user.Id);
+
+            return _responseHandler.Success(response, "Password reset successfully. Please log in with your new password.");
+        }
+        public async Task<Response<string>> ChangePasswordAsync(string userId, ChangePasswordRequest request)
+        {
+            _logger.LogInformation("ChangePasswordAsync started for UserId: {UserId}", userId);
+
+            try
+            {
+                var user = await _userManager.FindByIdAsync(userId);
+                if (user == null)
+                {
+                    _logger.LogWarning("User not found for ChangePasswordAsync. UserId: {UserId}", userId);
+                    return _responseHandler.NotFound<string>("User not found.");
+                }
+
+                var result = await _userManager.ChangePasswordAsync(user, request.CurrentPassword, request.NewPassword);
+
+                if (!result.Succeeded)
+                {
+                    var errors = result.Errors.Select(e => e.Description).ToList();
+                    _logger.LogWarning("Change password failed for UserId: {UserId}. Errors: {Errors}", userId, string.Join(", ", errors));
+                    return _responseHandler.BadRequest<string>(string.Join(", ", errors));
+                }
+
+                _logger.LogInformation("Password changed successfully for UserId: {UserId}", userId);
+
+                try
+                {
+                    await _emailService.SendPasswordChangedEmailAsync(user.Email, user.UserName);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Password changed but failed to send notification email for user {UserId}", userId);
+                }
+
+                return _responseHandler.Success<string>(null, "Password updated successfully.");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Unexpected error during ChangePasswordAsync for UserId: {UserId}", userId);
+                return _responseHandler.InternalServerError<string>("An error occurred while changing password.");
+            }
+        }
+
+        public async Task<Shared.Response<ChangeEmailResponse>> ChangeEmailAsync(ChangeEmailRequest model, bool useOtp = true)
+        {
+            _logger.LogInformation("Starting ChangeEmailAsync for UserId: {UserId}, NewEmail: {NewEmail}, UseOtp: {UseOtp}", model.UserId, model.NewEmail, useOtp);
+
+            // Find user
+            var user = await _userManager.FindByIdAsync(model.UserId);
+            if (user == null)
+            {
+                _logger.LogWarning("User not found with ID: {UserId}", model.UserId);
+                return _responseHandler.NotFound<ChangeEmailResponse>("User not found.");
+            }
+
+            // Validate password
+            if (!await _userManager.CheckPasswordAsync(user, model.OldPassword))
+            {
+                _logger.LogWarning("Invalid password for UserId: {UserId}", model.UserId);
+                return _responseHandler.BadRequest<ChangeEmailResponse>("Invalid password.");
+            }
+
+            // Check if new email is the same as current
+            var currentEmail = user.Email;
+            if (model.NewEmail == currentEmail)
+            {
+                _logger.LogWarning("New email is the same as current for UserId: {UserId}", model.UserId);
+                return _responseHandler.BadRequest<ChangeEmailResponse>("Email is the same.");
+            }
+
+            // Check if new email already exists
+            var existingUser = await _userManager.FindByEmailAsync(model.NewEmail)
+                               ?? await _userManager.FindByNameAsync(model.NewEmail);
+
+            if (existingUser != null)
+            {
+                _logger.LogWarning("Email already exists: {NewEmail}", model.NewEmail);
+                return _responseHandler.BadRequest<ChangeEmailResponse>("Email already exists.");
+            }
+
+            string otpOrLink = string.Empty;
+            try
+            {
+                if (useOtp)
+                {
+                    // OTP mode
+                    _logger.LogInformation("Generating OTP for UserId: {UserId}, Operation: change-email", user.Id);
+                    otpOrLink = await _otpService.GenerateAndStoreOtpAsync(user.Id, "change-email");
+
+                    // Gharabawy : TODO : Manage it and think about the cycle for cleaning
+                    // Store newEmail in Redis for resend OTP (ResendOTPAsync)
+                    //await _redis.StringSetAsync($"new-email:{user.Id}", model.NewEmail, TimeSpan.FromDays(7));
+
+                    // InMemoryCahce
+                    var cacheStoredEmail = _memoryCache.Set($"new-email:{user.Id}", model.NewEmail, TimeSpan.FromDays(7));
+
+                    await _emailService.SendChangeEmailEmailAsync(model.NewEmail, user.DisplayName, otpOrLink, isOtp: true);
+                }
+                else
+                {
+                    // Link mode
+                    _logger.LogInformation("Generating change email token for UserId: {UserId}", user.Id);
+
+                    var token = await _userManager.GenerateChangeEmailTokenAsync(user, model.NewEmail);
+                    token = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(token));
+
+                    // Dynamic setup for tokenLink
+                    // API link (direct reset)(for testing)
+                    var apiLink = $"{_passwordResetSettings.BackendBaseUrl}/api/update-email?token={token}&userId={Uri.EscapeDataString(user.Id)}";
+
+                    // Frontend callback (when we have an UI for changing email)
+                    var callbackUrl = $"{_passwordResetSettings.ClientBaseUrl}/update-email?token={token}&userId={Uri.EscapeDataString(user.Id)}";
+
+                    // choose between 2 links for confirmation link
+                    otpOrLink = apiLink;
+
+                    await _emailService.SendChangeEmailEmailAsync(model.NewEmail, user.DisplayName, otpOrLink, isOtp: false);
+                }
+
+                _logger.LogInformation("Change email {Mode} sent successfully to {NewEmail} for UserId: {UserId}", useOtp ? "OTP" : "link", model.NewEmail, user.Id);
+
+                var response = new ChangeEmailResponse
+                {
+                    UserId = user.Id,
+                    NewEmail = model.NewEmail
+                };
+
+                return _responseHandler.Success(response, "Verification instructions sent to your new email.");
+
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to send change email {Mode} to {NewEmail} for UserId: {UserId}", useOtp ? "OTP" : "link", model.NewEmail, user.Id);
+                return _responseHandler.InternalServerError<ChangeEmailResponse>("Failed to send change email instructions.");
+            }
+        }
+        public async Task<Shared.Response<UpdateEmailResponse>> UpdateEmailAsync(UpdateEmailRequest model, bool useOtp = true)
+        {
+            _logger.LogInformation("Starting UpdateEmailAsync for UserId: {UserId}, NewEmail: {NewEmail}, UseOtp: {UseOtp}", model.UserId, model.NewEmail, useOtp);
+
+            var user = await _userManager.FindByIdAsync(model.UserId);
+            if (user == null)
+            {
+                _logger.LogWarning("User not found with ID: {UserId}", model.UserId);
+                return _responseHandler.NotFound<UpdateEmailResponse>("User not found.");
+            }
+
+            try
+            {
+                if (useOtp)
+                {
+                    // OTP mode (verification step)
+                    _logger.LogInformation("Validating OTP for UserId: {UserId}, Operation: change-email", user.Id);
+                    var isOtpValid = await _otpService.ValidateOtpAsync(model.UserId, model.Otp, "change-email");
+                    if (!isOtpValid)
+                    {
+                        _logger.LogWarning("Invalid or expired OTP for UserId: {UserId}", model.UserId);
+                        return _responseHandler.BadRequest<UpdateEmailResponse>("Invalid or expired OTP.");
+                    }
+                }
+                //else
+                //{
+                //    // Link mode (verification step + changing step)
+                //    var decodedToken = Encoding.UTF8.GetString(WebEncoders.Base64UrlDecode(model.Token));
+                //    var result = await _userManager.ChangeEmailAsync(user, model.NewEmail, decodedToken);
+                //    if (!result.Succeeded)
+                //    {
+                //        var errors = result.Errors.Select(e => e.Description).ToList();
+                //        _logger.LogWarning("Email change failed for UserId: {UserId}. Errors: {Errors}", user.Id, string.Join(", ", errors));
+                //        return _responseHandler.BadRequest<UpdateEmailResponse>(string.Join(", ", errors));
+                //    }
+                //}
+
+                // Update email if OTP is valid
+                if (useOtp)
+                {
+                    user.Email = model.NewEmail;
+                    user.NormalizedEmail = model.NewEmail.ToUpper();
+                    var updateResult = await _userManager.UpdateAsync(user);
+                    if (!updateResult.Succeeded)
+                    {
+                        var errors = updateResult.Errors.Select(e => e.Description).ToList();
+                        _logger.LogWarning("Email update failed for UserId: {UserId}. Errors: {Errors}", user.Id, string.Join(", ", errors));
+                        return _responseHandler.BadRequest<UpdateEmailResponse>(string.Join(", ", errors));
+                    }
+                }
+
+                _logger.LogInformation("Email updated successfully for UserId: {UserId} to {NewEmail}", user.Id, model.NewEmail);
+
+                var response = new UpdateEmailResponse
+                {
+                    UserId = user.Id,
+                    NewEmail = model.NewEmail
+                };
+
+                return _responseHandler.Success(response, "Email updated successfully.");
+            }
+            catch (DbUpdateConcurrencyException)
+            {
+                _logger.LogError("Database concurrency error updating email for UserId: {UserId}", user.Id);
+                return _responseHandler.InternalServerError<UpdateEmailResponse>("Database concurrency error.");
+            }
+            catch (DbUpdateException ex)
+            {
+                _logger.LogError(ex, "Database error updating email for UserId: {UserId}", user.Id);
+                return _responseHandler.InternalServerError<UpdateEmailResponse>("Database error.");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Unexpected error updating email for UserId: {UserId}", user.Id);
+                return _responseHandler.InternalServerError<UpdateEmailResponse>("Unexpected error.");
+            }
+        }
+
+
+        private async Task<AppUser?> FindUserByEmailAsync(string email)
+        {
+            if (!string.IsNullOrEmpty(email))
+                return await _userManager.FindByEmailAsync(email);
+            return null;
+        }
+
     }
 }

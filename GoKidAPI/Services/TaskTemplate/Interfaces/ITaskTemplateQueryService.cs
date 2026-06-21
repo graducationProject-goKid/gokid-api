@@ -8,8 +8,8 @@ namespace GoKidAPI.Services.TaskTemplate.Interfaces
 {
     public interface ITaskTemplateQueryService
     {
-        Task<Response<PaginatedList<TaskTemplateListItemResponse>>> GetAllAsync(RequestFilters<TaskSortingColumn> filters);
-        Task<Response<TaskTemplateDetailsResponse>> GetByIdAsync(string id);
+        Task<Response<PaginatedList<TaskTemplateListItemResponse>>> GetAllAsync(TaskRequestFilters filters);
+        Task<Response<object>> GetByIdAsync(string id, TaskTemplateType type);
         Task<Response<PaginatedList<TaskTemplateListItemResponse>>> GetBySubCategoryAsync(
             string subCategoryId, DifficultyLevel? difficulty, RequestFilters<TaskSortingColumn> filters);
         Task<Response<PaginatedList<TaskTemplateListItemResponse>>> GetByCategoryAsync(

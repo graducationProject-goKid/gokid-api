@@ -161,7 +161,7 @@ namespace GoKidAPI.Services.SubCategory
 
         public async Task<Response<string>> DeleteAsync(string id)
         {
-            var sub = await _context.SubCategories.FirstOrDefaultAsync(s => s.CategoryId == id);
+            var sub = await _context.SubCategories.FirstOrDefaultAsync(s => s.Id == id);
 
             if (sub == null)
                 return _response.NotFound<string>("SubCategory not found");

@@ -11,8 +11,7 @@ namespace GoKidAPI.Seeder
     public class UserSeeder
     {
         public static async Task SeedAsync(
-            UserManager<AppUser> _userManager,
-            AppDbContext _context)
+            UserManager<AppUser> _userManager)
         {
             var usersCount = await _userManager.Users.CountAsync();
             if (usersCount <= 0)

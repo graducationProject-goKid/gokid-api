@@ -1,4 +1,4 @@
-
+﻿
 using System.Text.Json.Serialization;
 
 using DocumentFormat.OpenXml.InkML;
@@ -6,10 +6,14 @@ using DocumentFormat.OpenXml.InkML;
 using GoKidAPI.Data;
 using GoKidAPI.Entity.Account.Identity;
 using GoKidAPI.Extensions;
+using GoKidAPI.Hubs;
 using GoKidAPI.InfrastructreManage.Options;
+using GoKidAPI.Jobs;
 using GoKidAPI.Seeder;
 
 using Google;
+
+using Hangfire;
 
 using Microsoft.AspNetCore.Cors.Infrastructure;
 using Microsoft.AspNetCore.Identity;
@@ -51,6 +55,12 @@ namespace GoKidAPI
             builder.Services.AddMemoryCache();
 
             builder.Services.AddHttpContextAccessor();
+
+            builder.Services.AddHttpClient();
+
+            builder.Services.AddHangfire(builder.Configuration);
+
+            builder.Services.AddSignalR();
 
             // Here we will register IOptions <JWT>, <CloudinarySettings>,....
             builder.Services.Configure<JwtOptions>(builder.Configuration.GetSection("JWT"));
@@ -123,7 +133,7 @@ namespace GoKidAPI
                 await RoleSeeder.SeedAsync(roleManager);
                 await CategoriesSeeder.SeedAsync(context);
 
-                //await UserSeeder.SeedAsync(userManager);
+                await UserSeeder.SeedAsync(userManager);
             }
             #endregion
             //app.UseResponseCaching();
@@ -145,21 +155,23 @@ namespace GoKidAPI
             app.UseCors(CorsPolicy);
 
             app.UseAuthentication();
-            /// Create fake identity for testing only 
-            /*app.Use(async (context, next) =>
-            {
-                
-                var claims = new List<Claim>
-                {
-                    new Claim(ClaimTypes.NameIdentifier, Guid.NewGuid().ToString()),
-                    new Claim(ClaimTypes.Role, "Manager")
-                };
 
-                var identity = new ClaimsIdentity(claims, "TestAuth");
-                context.User = new ClaimsPrincipal(identity);
+            app.UseHangfireDashboard("/hangfire");
+            app.MapHub<NotificationHub>("/hubs/notifications");
 
-                await next.Invoke();
-            });*/
+
+            RecurringJob.AddOrUpdate<DailyTaskAssignmentJob>(
+                "daily-task-assignment",
+                job => job.AssignDailyTasksAsync(),
+                Cron.Daily(0, 0) // 12 AM UTC كل يوم
+            );
+
+            RecurringJob.AddOrUpdate<AdventureAssignmentJob>(
+                "daily-adventure-tasks",
+                job => job.ProcessDailyAdventureTasksAsync(),
+                Cron.Daily(0, 0)
+            );
+
             app.UseAuthorization();
 
             app.MapControllers();

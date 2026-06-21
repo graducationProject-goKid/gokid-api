@@ -1,4 +1,6 @@
-﻿using GoKidAPI.Entity.Account.Users;
+﻿using System.ComponentModel.DataAnnotations.Schema;
+
+using GoKidAPI.Entity.Account.Users;
 using GoKidAPI.Entity.Base;
 using GoKidAPI.Enums.Tasks;
 
@@ -11,7 +13,9 @@ namespace GoKidAPI.Entity.Tasks
         public string ChildId { get; set; } = null!;
         public Child Child { get; set; } = null!;
 
+
         public string TaskTemplateId { get; set; } = null!;
+        [ForeignKey(nameof(TaskTemplateId))]
         public TaskTemplateBase Template { get; set; } = null!;
 
         public TaskSource Source { get; set; } = TaskSource.SystemGeneral;
@@ -30,11 +34,14 @@ namespace GoKidAPI.Entity.Tasks
         public DateTime? CompletedAt { get; set; }
         public DateTime? ApprovedAt { get; set; }
         public string? RejectionReason { get; set; }
+        public string? ParentAcceptanceMessage { get; set; }
+        public string? ChildNote { get; set; }
 
         // Media & AI
         // How many times the child attempted to complete the task,
         // if the task has Maximum Attempts, this will be used to limit the attempts (Voice)
         public int AttemptCount { get; set; } = 0; 
+        public DateTime? LastVoiceSubmitAttempt {  get; set; }
         public string? AnswerText { get; set; }
         public string? AnswerMediaUrl { get; set; }
 

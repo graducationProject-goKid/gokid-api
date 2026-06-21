@@ -27,7 +27,6 @@ namespace GoKidAPI.Services.ImageUploading
 
         public async Task<UploadImageResponse> UploadAsync(IFormFile file)
         {
-            // NOTE : Image validation must be done e.g(file extension....)
             if (file == null || file.Length == 0)
                 throw new ArgumentException("File is empty or null");
 
@@ -35,12 +34,28 @@ namespace GoKidAPI.Services.ImageUploading
             await file.CopyToAsync(memoryStream);
             memoryStream.Position = 0;
 
-            var uploadParams = new ImageUploadParams
-            {
-                File = new FileDescription(file.FileName, memoryStream)
-            };
+            var extension = Path.GetExtension(file.FileName).ToLower();
 
-            var result = await _cloudinary.UploadAsync(uploadParams);
+            RawUploadResult result;
+
+            if (extension == ".mp3" || extension == ".wav" || extension == ".m4a" || extension == ".aac" || extension == ".ogg")
+            {
+                var uploadParams = new RawUploadParams
+                {
+                    File = new FileDescription(file.FileName, memoryStream)
+                };
+
+                result = await _cloudinary.UploadAsync(uploadParams);
+            }
+            else
+            {
+                var uploadParams = new ImageUploadParams
+                {
+                    File = new FileDescription(file.FileName, memoryStream)
+                };
+
+                result = await _cloudinary.UploadAsync(uploadParams);
+            }
 
             if (result == null)
                 throw new Exception("Upload result was null from Cloudinary.");

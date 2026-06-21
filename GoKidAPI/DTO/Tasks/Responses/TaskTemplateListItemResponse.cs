@@ -9,6 +9,10 @@ namespace GoKidAPI.DTO.Tasks.Responses
         public string TitleEn { get; set; } = null!;
         public string DescriptionAr { get; set; } = null!;
         public string DescriptionEn { get; set; } = null!;
+        public string SubCategoryNameAr { get; set; } = null!;
+        public string CategoryId { get; set; } = null!;
+        public string CategoryNameAr { get; set; } = null!;
+        public string CategoryNameEn { get; set; } = null!;
         public string? IconUrl { get; set; }
         public string SubCategoryId { get; set; } = null!;
         public string SubCategoryNameEn { get; set; } = null!;

@@ -15,5 +15,10 @@ namespace GoKidAPI.Services.Auth
         Task<Response<AuthResponse>> RefreshTokenAsync(string refreshToken);
         Task<Response<string>> ResendOtpAsync(string email);
         Task<Response<string>> LogoutAsync(string userId);
+
+        Task<Response<string>> ChangePasswordAsync(string userId, ChangePasswordRequest request);
+        Task<Response<ForgetPasswordResponse>> ForgotPasswordAsync(ForgetPasswordRequest model, bool useOtp = true);
+        Task<Response<ResetPasswordResponse>> ResetPasswordAsync(DTO.Account.Auth.Requests.ResetPasswordRequest model, bool useOtp = true);
+
     }
 }

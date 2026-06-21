@@ -69,7 +69,7 @@ namespace GoKidAPI.Services.TaskTemplate
                 QuestionText = request.QuestionText,
                 TaskImageUrl = taskImageUrl,
                 TaskImagePublicId = taskImagePublicId,
-                ExpectedCorrectAnswer = request.ExpectedCorrectAnswer,
+                VoiceExpectedCorrectAnswer = request.ExpectedCorrectAnswer,
                 VoicePrompt = request.VoicePrompt,
                 MaxVoiceAttempts = request.MaxVoiceAttempts,
                 MaxVoiceDurationSeconds = request.MaxVoiceDurationSeconds,

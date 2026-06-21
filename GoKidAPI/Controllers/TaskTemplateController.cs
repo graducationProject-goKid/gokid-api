@@ -1,11 +1,8 @@
-﻿using Azure;
-
-using FluentValidation;
+﻿using FluentValidation;
 
 using GoKidAPI.DTO.Tasks.Requests;
 using GoKidAPI.DTO.Tasks.Responses;
 using GoKidAPI.Enums.Tasks;
-using GoKidAPI.Services.TaskTemplate;
 using GoKidAPI.Services.TaskTemplate.Interfaces;
 using GoKidAPI.Shared;
 
@@ -131,6 +128,7 @@ namespace GoKidAPI.Controllers
         ///<response code = "403" > Forbidden </response>
         /// <response code="500">Internal server error</response>
         [HttpPost("text-question")]
+        [ApiExplorerSettings(IgnoreApi =true)]
         [ProducesResponseType(typeof(Shared.Response<TextQuestionTaskResponse>), StatusCodes.Status201Created)]
         public async Task<IActionResult> CreateTextQuestion([FromForm] CreateTextQuestionRequest request)
         {
@@ -242,18 +240,28 @@ namespace GoKidAPI.Controllers
         }
 
         [HttpGet]
-        [ProducesResponseType(typeof(Shared.Response<PaginatedList<TaskTemplateListItemResponse>>), StatusCodes.Status200OK)]
-        public async Task<IActionResult> GetAll([FromQuery] RequestFilters<TaskSortingColumn>? filters)
+        [ProducesResponseType(typeof(Shared.Response<PaginatedList<TaskTemplateListItemResponse>>),StatusCodes.Status200OK)]
+        public async Task<IActionResult> GetAll([FromQuery] TaskRequestFilters filters)
         {
             var result = await _taskTemplateQueryService.GetAllAsync(filters);
             return Ok(result);
         }
 
+        /// <summary>
+        /// Get task template by ID and Type
+        /// </summary>
+        /// <param name="id">Task template ID</param>
+        /// <param name="type">Task template type (InstantReward, TextQuestion, VoiceQuestion, EvidenceSubmission)</param>
         [HttpGet("{id}")]
-        [ProducesResponseType(typeof(Shared.Response<TaskTemplateDetailsResponse>), StatusCodes.Status200OK)]
-        public async Task<IActionResult> GetById(string id)
+        [ProducesResponseType(typeof(Response<InstantRewardTaskResponse>), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(Response<TextQuestionTaskResponse>), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(Response<VoiceQuestionTaskResponse>), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(Response<EvidenceSubmissionTaskResponse>), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        public async Task<IActionResult> GetById(string id, TaskTemplateType taskType)
         {
-            var result = await _taskTemplateQueryService.GetByIdAsync(id);
+            var result = await _taskTemplateQueryService.GetByIdAsync(id, taskType);
             return StatusCode((int)result.StatusCode, result);
         }
 

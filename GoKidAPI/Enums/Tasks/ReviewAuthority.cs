@@ -4,6 +4,6 @@
     {
         Parent = 1,
         PlatformAdmin = 2,
-        AI = 3
+        AI = 3,
     }
 }

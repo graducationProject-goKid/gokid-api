@@ -1,4 +1,7 @@
-﻿using QRCoder;
+﻿using System.Drawing;
+using System.Drawing.Imaging;
+
+using QRCoder;
 
 namespace GoKidAPI.Helpers
 {
@@ -13,12 +16,17 @@ namespace GoKidAPI.Helpers
         }
         public static string GenerateQrCodeBase64(string code)
         {
-            var qrGenerator = new QRCodeGenerator();
-            var qrCodeData = qrGenerator.CreateQrCode(code, QRCodeGenerator.ECCLevel.Q);
-            var qrCode = new BitmapByteQRCode(qrCodeData);
-            var bitmapBytes = qrCode.GetGraphic(20);
+            using var qrGenerator = new QRCodeGenerator();
+            using var qrData = qrGenerator.CreateQrCode(code, QRCodeGenerator.ECCLevel.Q);
+            using var qrCode = new QRCode(qrData);
+            using Bitmap qrImage = qrCode.GetGraphic(20);
 
-            return $"data:image/png;base64,{Convert.ToBase64String(bitmapBytes)}";
+            using var ms = new MemoryStream();
+            qrImage.Save(ms, ImageFormat.Png);
+
+            var base64 = Convert.ToBase64String(ms.ToArray());
+
+            return $"data:image/png;base64,{base64}";
         }
         
         public static Guid ParseStringToGuid (string expr)

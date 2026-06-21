@@ -5,6 +5,7 @@ using GoKidAPI.Entity.Account.Identity;
 using GoKidAPI.Entity.Account.Users;
 using GoKidAPI.Entity.Account.UserTokens;
 using GoKidAPI.Entity.Classes;
+using GoKidAPI.Entity.Gifts;
 using GoKidAPI.Entity.Institiution;
 using GoKidAPI.Entity.Tasks;
 using GoKidAPI.Enums.Tasks;
@@ -53,13 +54,9 @@ namespace GoKidAPI.Data
             modelBuilder.Entity<ClassSupervisor>()
                 .HasKey(cs => new { cs.ClassId, cs.SupervisorId });
 
-            // AdventureTask Composite Key
-            modelBuilder.Entity<AdventureTask>()
-                .HasKey(cs => new { cs.AdventureId, cs.TaskTemplateId });
-
-            // ChildAdventureProgress Composite Key
-            modelBuilder.Entity<ChildAdventureProgress>()
-                .HasKey(cs => new { cs.WeeklyAdventureId, cs.ChildId }); 
+            //// ChildAdventureProgress Composite Key
+            //modelBuilder.Entity<ChildAdventureProgress>()
+            //    .HasKey(cs => new { cs.WeeklyAdventureId, cs.ChildId }); 
             #endregion
 
             modelBuilder.Entity<Child>()
@@ -88,8 +85,22 @@ namespace GoKidAPI.Data
             // Tasks <-> subCategory
             modelBuilder.Entity<TaskTemplateBase>()
                 .HasOne(t => t.SubCategory)
-                .WithMany()
+                .WithMany(sc=>sc.Templates)
                 .HasForeignKey(t => t.SubCategoryId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            // Institution - InstitutionAdmin 1-1
+            modelBuilder.Entity<InstitutionAdmin>()
+                .HasOne(a => a.Institution)
+                .WithOne(i => i.Admin)
+                .HasForeignKey<InstitutionAdmin>(a => a.InstitutionId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            // Institution → Supervisors (1-to-N)
+            modelBuilder.Entity<Supervisor>()
+                .HasOne(s => s.Institution)
+                .WithMany(i => i.Supervisors)
+                .HasForeignKey(s => s.InstitutionId)
                 .OnDelete(DeleteBehavior.Restrict);
 
         }
@@ -99,6 +110,17 @@ namespace GoKidAPI.Data
         public DbSet<AppUser> AppUsers { get; set; }
         public DbSet<Parent> Parents { get; set; }
         public DbSet<Child> Childrens { get; set; }
+        public DbSet<Supervisor> Supervisors { get; set; }
+        public DbSet<Institution> Institutions { get; set; }
+        public DbSet<InstitutionAdmin> InstitutionAdmins { get; set; }
+        public DbSet<Class> Classes { get; set; }
+        public DbSet<ClassSupervisor> ClassSupervisors { get; set; }
+        public DbSet<Adventure> Adventures { get; set; }
+        public DbSet<WeeklyAdventure> WeeklyAdventures { get; set; }
+        public DbSet<ChildAdventureProgress> ChildAdventureProgresses { get; set; }
+        //public DbSet<Reward> Rewards { get; set; }
+        public DbSet<AdventureTask> AdventureTasks { get; set; }
+        public DbSet<ChildAdventureTask> ChildAdventureTasks { get; set; }
 
         // Tasks System
         public DbSet<TaskCategory> TaskCategories { get; set; }
@@ -107,6 +129,10 @@ namespace GoKidAPI.Data
         public DbSet<ChildTask> ChildTasks { get; set; }
 
         public DbSet<PointsTransaction> PointsTransactions { get; set; }
+
+        public DbSet<Gift> Gifts { get; set; }
+        public DbSet<Reward> Rewards { get; set; }
+        public DbSet<ChildGift> ChildGifts { get; set; }
 
     }
 }

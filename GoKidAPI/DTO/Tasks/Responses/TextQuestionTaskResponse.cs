@@ -5,7 +5,6 @@ namespace GoKidAPI.DTO.Tasks.Responses
     public class TextQuestionTaskResponse
     {
         public string Id { get; set; } = null!;
-        public string Code { get; set; } = null!;
         public string TitleAr { get; set; } = null!;
         public string TitleEn { get; set; } = null!;
         public string DescriptionAr { get; set; } = null!;

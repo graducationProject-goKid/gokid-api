@@ -1,5 +1,6 @@
 ﻿using System.ComponentModel.DataAnnotations.Schema;
 
+using GoKidAPI.Entity.Account.Users;
 using GoKidAPI.Entity.Base;
 using GoKidAPI.Entity.Classes;
 
@@ -15,6 +16,8 @@ namespace GoKidAPI.Entity.Institiution
         [ForeignKey(nameof(InstitutionAdminId))]
         public InstitutionAdmin Admin { get; set; } = null!;
 
+        public ICollection<Supervisor> Supervisors { get; set; } = new List<Supervisor>();
         public ICollection<Class> Classes { get; set; }
+        public ICollection<Child> EnrolledChildren { get; set; } = new List<Child>();
     }
 }

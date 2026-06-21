@@ -1,6 +1,7 @@
 ﻿using System.Security.Claims;
 
 using GoKidAPI.DTO.Account.Auth.Requests;
+using GoKidAPI.DTO.Account.Auth.Responses;
 using GoKidAPI.Services.Auth;
 using GoKidAPI.Shared;
 
@@ -64,7 +65,7 @@ namespace GoKidAPI.Controllers
         /// Login for Parent, Child, Institution Staff or Platform Admin
         /// </summary>
         /// <remarks>
-        /// - Parent/Staff: Use email + password + loginAs = "Parent" or "InstitutionAdmin" etc.
+        /// - Parent/Staff: Use email + password + loginAs = "Parent" or "InstitutionAdmin" or "PlatformAdmin" or "Supervisor".
         /// - Child: Use 6-digit code + loginAs = "Child" (no password)
         /// </remarks>
         /// <response code="200">Login successful + JWT token</response>
@@ -133,5 +134,45 @@ namespace GoKidAPI.Controllers
             var result = await _authService.CreateChildAsync(parentId, request);
             return StatusCode((int)result.StatusCode, result);
         }
+        /// <summary>
+        /// Sends password reset instructions (OTP or reset link) to the user's email.
+        /// </summary>
+        
+        [HttpPost("forgot-password")]
+        [ProducesResponseType(typeof(Response<ForgetPasswordResponse>), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(Response<ForgetPasswordResponse>), StatusCodes.Status404NotFound)]
+        public async Task<IActionResult> ForgotPassword([FromBody] ForgetPasswordRequest request)
+        {
+            var result = await _authService.ForgotPasswordAsync(request, useOtp: true);
+            return StatusCode((int)result.StatusCode, result);
+        }
+        /// <summary>
+        /// Resets the user's password using OTP or reset token.
+        /// </summary>
+        [HttpPost("reset-password")]
+        [ProducesResponseType(typeof(Response<ResetPasswordResponse>), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(Response<ResetPasswordResponse>), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(typeof(Response<ResetPasswordResponse>), StatusCodes.Status404NotFound)]
+        public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordRequest request)
+        {
+            var result = await _authService.ResetPasswordAsync(request, useOtp: true);
+            return StatusCode((int)result.StatusCode, result);
+        }
+        /// <summary>
+        /// Changes the current authenticated user's password.
+        /// </summary>
+        [Authorize]
+        [HttpPost("change-password")]
+        [ProducesResponseType(typeof(Response<string>), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(Response<string>), StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(typeof(Response<string>), StatusCodes.Status404NotFound)]
+        public async Task<IActionResult> ChangePassword([FromBody] ChangePasswordRequest request)
+        {
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            var result = await _authService.ChangePasswordAsync(userId, request);
+            return StatusCode((int)result.StatusCode, result);
+        }
+
+
     }
 }

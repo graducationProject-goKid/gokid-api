@@ -23,58 +23,61 @@ namespace GoKidAPI.Services.TaskTemplate
             _logger = logger;
         }
 
-        public async Task<Response<PaginatedList<TaskTemplateListItemResponse>>> GetAllAsync(RequestFilters<TaskSortingColumn> filters)
+        public async Task<Response<PaginatedList<TaskTemplateListItemResponse>>> GetAllAsync(TaskRequestFilters filters)
         {
             try
             {
-                // Default sorting
                 var sortColumn = filters.SortColumn ?? TaskSortingColumn.CreatedAt;
                 var sortDirection = filters.SortDirection ?? SortDirection.DESC;
 
-                _logger.LogInformation("Fetching task templates - Page: {PageNumber}, Size: {PageSize}, Sort: {SortColumn} {SortDirection}",
-                    filters.PageNumber, filters.PageSize, sortColumn, sortDirection);
-
-                // Build Query
                 var query = _context.TaskTemplates
                     .Include(t => t.SubCategory)
-                    .AsQueryable().AsNoTracking();
+                    .ThenInclude(sc => sc.Category)
+                    .AsNoTracking()
+                    .AsQueryable();
 
-                //// 3. Apply Sorting
-                //query = sortColumn switch
-                //{
-                //    TaskSortingColumn.Title => sortDirection == SortDirection.DESC
-                //        ? query.OrderByDescending(t => t.TitleEn)
-                //        : query.OrderBy(t => t.TitleEn),
+                // ✅ Task-specific filters
+                if (filters.TemplateType.HasValue)
+                {
+                    query = query.Where(t => t.TemplateType == filters.TemplateType.Value);
+                }
 
-                //    TaskSortingColumn.Difficulty => sortDirection == SortDirection.DESC
-                //        ? query.OrderByDescending(t => t.Difficulty)
-                //        : query.OrderBy(t => t.Difficulty),
+                // ✅ Task-specific filters
+                if (filters.TemplateType.HasValue)
+                {
+                    query = query.Where(t => t.TemplateType == filters.TemplateType.Value);
+                }
 
-                //    TaskSortingColumn.BasePoints => sortDirection == SortDirection.DESC
-                //        ? query.OrderByDescending(t => t.BasePoints)
-                //        : query.OrderBy(t => t.BasePoints),
+                // ✅ Difficulty filter
+                if (filters.Difficulty.HasValue)
+                {
+                    query = query.Where(t => t.Difficulty == filters.Difficulty.Value);
+                }
 
-                //    TaskSortingColumn.TemplateType => sortDirection == SortDirection.DESC
-                //        ? query.OrderByDescending(t => t.TemplateType)
-                //        : query.OrderBy(t => t.TemplateType),
+                // ✅ SubCategory filter
+                if (!string.IsNullOrEmpty(filters.SubCategoryId.ToString()))
+                {
+                    query = query.Where(t => t.SubCategoryId == filters.SubCategoryId.ToString());
+                }
 
-                //    TaskSortingColumn.CreatedAt => sortDirection == SortDirection.DESC
-                //        ? query.OrderByDescending(t => t.CreatedAt)
-                //        : query.OrderBy(t => t.CreatedAt),
+                // (اختياري) Sorting
+                query = sortColumn switch
+                {
+                    TaskSortingColumn.Title =>
+                        sortDirection == SortDirection.DESC
+                            ? query.OrderByDescending(t => t.TitleEn)
+                            : query.OrderBy(t => t.TitleEn),
 
-                //    TaskSortingColumn.SubCategory => sortDirection == SortDirection.DESC
-                //        ? query.OrderByDescending(t => t.Category!.NameEn)
-                //        : query.OrderBy(t => t.Category!.NameEn),
+                    TaskSortingColumn.CreatedAt =>
+                        sortDirection == SortDirection.DESC
+                            ? query.OrderByDescending(t => t.CreatedAt)
+                            : query.OrderBy(t => t.CreatedAt),
 
-                //    _ => sortDirection == SortDirection.DESC
-                //        ? query.OrderByDescending(t => t.CreatedAt)
-                //        : query.OrderBy(t => t.CreatedAt)
-                //};
+                    _ => query.OrderByDescending(t => t.CreatedAt)
+                };
 
-                // 4. Get Total Count
                 var total = await query.CountAsync();
 
-                // 5. Pagination + Projection
                 var items = await query
                     .Skip((filters.PageNumber - 1) * filters.PageSize)
                     .Take(filters.PageSize)
@@ -83,89 +86,144 @@ namespace GoKidAPI.Services.TaskTemplate
                         Id = t.Id,
                         TitleAr = t.TitleAr,
                         TitleEn = t.TitleEn,
+                        SubCategoryNameEn = t.SubCategory!.NameEn,
+                        TemplateType = t.TemplateType,
+                        CreatedAt = t.CreatedAt,
                         DescriptionAr = t.DescriptionAr,
                         DescriptionEn = t.DescriptionEn,
                         IconUrl = t.IconUrl,
                         SubCategoryId = t.SubCategoryId.ToString(),
-                        SubCategoryNameEn = t.SubCategory!.NameEn,
                         Difficulty = t.Difficulty,
                         BasePoints = t.BasePoints,
-                        TemplateType = t.TemplateType,
-                        CreatedAt = t.CreatedAt
+                        CategoryId = t.SubCategory.CategoryId.ToString(),
+                        CategoryNameAr = t.SubCategory.Category.NameAr,
+                        CategoryNameEn = t.SubCategory.Category.NameEn,
+                        SubCategoryNameAr = t.SubCategory.NameAr
                     })
                     .ToListAsync();
 
-                // 6. Build Paginated Result
-                var paginated = new PaginatedList<TaskTemplateListItemResponse>(items, filters.PageNumber, filters.PageSize, total);
-
-                _logger.LogInformation("Successfully retrieved {Count} task templates (Total: {Total})", items.Count, total);
-
-                return _response.Success(paginated, "Task templates retrieved successfully");
+                return _response.Success(
+                    new PaginatedList<TaskTemplateListItemResponse>(
+                        items, filters.PageNumber, filters.PageSize, total),
+                    "Task templates retrieved successfully"
+                );
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error retrieving task templates with filters: Page {Page}, Size {Size}", filters.PageNumber, filters.PageSize);
-                return _response.ServerError<PaginatedList<TaskTemplateListItemResponse>>("An error occurred while retrieving task templates");
+                _logger.LogError(ex, "Error retrieving task templates");
+                return _response.ServerError<PaginatedList<TaskTemplateListItemResponse>>(
+                    "An error occurred while retrieving task templates");
             }
         }
 
-        public async Task<Response<TaskTemplateDetailsResponse>> GetByIdAsync(string id)
+        public async Task<Response<object>> GetByIdAsync(string id, TaskTemplateType taskType)
         {
-            // Id is the tempateId
-            var baseTemplate = await _context.TaskTemplates
-                .AsNoTracking()
-                .Include(t => t.SubCategory)
-                .FirstOrDefaultAsync(t => t.Id == id);
-
-            if (baseTemplate == null)
-                return _response.NotFound<TaskTemplateDetailsResponse>("Task template not found");
-
-            TaskTemplateDetailsResponse response = new()
+            try
             {
-                Id = baseTemplate.Id,
-                TitleAr = baseTemplate.TitleAr,
-                TitleEn = baseTemplate.TitleEn,
-                DescriptionAr = baseTemplate.DescriptionAr,
-                DescriptionEn = baseTemplate.DescriptionEn,
-                IconUrl = baseTemplate.IconUrl,
-                SubCategoryId = baseTemplate.SubCategoryId.ToString(),
-                SubCategoryNameEn = baseTemplate.SubCategory.NameEn,
-                Difficulty = baseTemplate.Difficulty,
-                BasePoints = baseTemplate.BasePoints,
-                TemplateType = baseTemplate.TemplateType,
-                CreatedAt = baseTemplate.CreatedAt
-            };
+                // Id is the tempateId
+                var baseTemplate = await _context.TaskTemplates
+                        .Include(t => t.SubCategory)
+                        .AsNoTracking()
+                        .FirstOrDefaultAsync(t => t.Id == id);
 
-            switch (baseTemplate.TemplateType)
-            {
-                case TaskTemplateType.TextQuestion:
-                        response.QuestionText = baseTemplate.QuestionText;
-                        response.TaskImageUrl = baseTemplate.TaskImageUrl;
-                        response.ExpectedCorrectAnswer = baseTemplate.ExpectedCorrectAnswer;
-                        response.CaseSensitive = baseTemplate.CaseSensitive;
-                    break;
+                if (baseTemplate == null)
+                    return _response.NotFound<object>("Task template not found");
 
-                case TaskTemplateType.VoiceQuestion:
-                        response.QuestionText = baseTemplate.QuestionText;
-                        response.TaskImageUrl = baseTemplate.TaskImageUrl;
-                        response.ExpectedCorrectAnswer = baseTemplate.ExpectedCorrectAnswer;
-                        response.VoicePrompt = baseTemplate.VoicePrompt;
-                        response.MaxVoiceAttempts = baseTemplate.MaxVoiceAttempts;
-                        response.MaxVoiceDurationSeconds = baseTemplate.MaxVoiceDurationSeconds;
-                    break;
+                // Verify type matches
+                if (baseTemplate.TemplateType != taskType)
+                    return _response.BadRequest<object>(
+                        $"Task type mismatch. Expected {taskType}, but found {baseTemplate.TemplateType}");
 
-                case TaskTemplateType.EvidenceSubmission:
-                        response.InstructionsText = baseTemplate.InstructionsText;
-                        response.TaskImageUrl = baseTemplate.TaskImageUrl;
-                        response.EvidenceType = baseTemplate.EvidenceType;
-                        response.ReviewBy = baseTemplate.ReviewBy;
-                    break;
+                object response = taskType switch
+                {
+                    TaskTemplateType.InstantReward => new InstantRewardTaskResponse
+                    {
+                        Id = baseTemplate.Id,
+                        TitleAr = baseTemplate.TitleAr,
+                        TitleEn = baseTemplate.TitleEn,
+                        DescriptionAr = baseTemplate.DescriptionAr,
+                        DescriptionEn = baseTemplate.DescriptionEn,
+                        IconUrl = baseTemplate.IconUrl,
+                        TaskImageUrl = baseTemplate.TaskImageUrl,
+                        SubCategoryId = baseTemplate.SubCategoryId?.ToString() ?? "No Category",
+                        SubCategoryNameEn = baseTemplate.SubCategory?.NameEn ?? "No Category",
+                        Difficulty = baseTemplate.Difficulty,
+                        BasePoints = baseTemplate.BasePoints,
+                        CreatedAt = baseTemplate.CreatedAt
+                    },
 
-                    // InstantReward مفيش حقول إضافية
+                    TaskTemplateType.TextQuestion => new TextQuestionTaskResponse
+                    {
+                        Id = baseTemplate.Id,
+                        TitleAr = baseTemplate.TitleAr,
+                        TitleEn = baseTemplate.TitleEn,
+                        DescriptionAr = baseTemplate.DescriptionAr,
+                        DescriptionEn = baseTemplate.DescriptionEn,
+                        IconUrl = baseTemplate.IconUrl,
+                        SubCategoryId = baseTemplate.SubCategoryId?.ToString() ?? "No Category",
+                        SubCategoryNameEn = baseTemplate.SubCategory?.NameEn ?? "No Category",
+                        Difficulty = baseTemplate.Difficulty,
+                        BasePoints = baseTemplate.BasePoints,
+                        CreatedAt = baseTemplate.CreatedAt,
+                        QuestionText = baseTemplate.QuestionText!,
+                        TaskImageUrl = baseTemplate.TaskImageUrl,
+                        ExpectedCorrectAnswer = baseTemplate.ExpectedCorrectAnswer!,
+                        CaseSensitive = baseTemplate.CaseSensitive
+                    },
+
+                    TaskTemplateType.VoiceQuestion => new VoiceQuestionTaskResponse
+                    {
+                        Id = baseTemplate.Id,
+                        TitleAr = baseTemplate.TitleAr,
+                        TitleEn = baseTemplate.TitleEn,
+                        DescriptionAr = baseTemplate.DescriptionAr,
+                        DescriptionEn = baseTemplate.DescriptionEn,
+                        IconUrl = baseTemplate.IconUrl,
+                        SubCategoryId = baseTemplate.SubCategoryId?.ToString() ?? "No Category",
+                        SubCategoryNameEn = baseTemplate.SubCategory?.NameEn ?? "No Category",
+                        Difficulty = baseTemplate.Difficulty,
+                        BasePoints = baseTemplate.BasePoints,
+                        CreatedAt = baseTemplate.CreatedAt,
+                        QuestionText = baseTemplate.QuestionText!,
+                        TaskImageUrl = baseTemplate.TaskImageUrl,
+                        ExpectedCorrectAnswer = baseTemplate.ExpectedCorrectAnswer!,
+                        VoicePrompt = baseTemplate.VoicePrompt,
+                        MaxVoiceAttempts = baseTemplate.MaxVoiceAttempts,
+                        MaxVoiceDurationSeconds = baseTemplate.MaxVoiceDurationSeconds,
+                    },
+
+                    TaskTemplateType.EvidenceSubmission => new EvidenceSubmissionTaskResponse
+                    {
+                        Id = baseTemplate.Id,
+                        TitleAr = baseTemplate.TitleAr,
+                        TitleEn = baseTemplate.TitleEn,
+                        DescriptionAr = baseTemplate.DescriptionAr,
+                        DescriptionEn = baseTemplate.DescriptionEn,
+                        IconUrl = baseTemplate.IconUrl,
+                        SubCategoryId = baseTemplate.SubCategoryId?.ToString() ?? "No Category",
+                        SubCategoryNameEn = baseTemplate.SubCategory?.NameEn ?? "No Category",
+                        Difficulty = baseTemplate.Difficulty,
+                        BasePoints = baseTemplate.BasePoints,
+                        CreatedAt = baseTemplate.CreatedAt,
+                        InstructionsText = baseTemplate.InstructionsText!,
+                        TaskImageUrl = baseTemplate.TaskImageUrl,
+                        EvidenceType = baseTemplate.EvidenceType,
+                        ReviewBy = baseTemplate.ReviewBy
+                    },
+
+                    _ => throw new ArgumentException($"Unsupported template type: {taskType}")
+                };
+
+                _logger.LogInformation("Successfully retrieved {Type} task template with ID {Id}", taskType, id);
+                return _response.Success(response, "Task template retrieved successfully");
             }
-
-            return _response.Success(response,"Task details retrived succsessfully");
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error retrieving task template with ID {Id} and Type {Type}", id, taskType);
+                return _response.ServerError<object>("An error occurred while retrieving task template");
+            }
         }
+    
         public async Task<Response<PaginatedList<TaskTemplateListItemResponse>>> GetBySubCategoryAsync(
             string subCategoryId, DifficultyLevel? difficulty, RequestFilters<TaskSortingColumn> filters)
         {

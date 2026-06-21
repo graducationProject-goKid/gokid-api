@@ -8,6 +8,9 @@ namespace GoKidAPI.Services.Email
         Task SendResetPasswordEmailAsync(string recipientEmail, string subject, string userName, string otpOrLink, bool isOtp);
         Task SendConfirmationEmailAsync(string recipientEmail, string subject, string userName, string otpOrLink, bool isOtp);
         Task SendPasswordChangedEmailAsync(string recipientEmail, string userName);
+        Task SendChangeEmailEmailAsync(string recipientEmail, string userName, string otpOrLink, bool isOtp);
+
+        Task SendSupervisorCredentialsAsync(string recipientEmail, string fullName, string email, string password, string loginUrl);
 
     }
 }

@@ -1,5 +1,4 @@
 ﻿using System.IdentityModel.Tokens.Jwt;
-using System.Management;
 using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
@@ -44,6 +43,7 @@ namespace GoKidAPI.Services.TokenStore
         public async Task<string> CreateAccessTokenAsync(AppUser appUser)
         {
             var roles = await _userManager.GetRolesAsync(appUser);
+
             var Claims = new List<Claim>
             {
                 new Claim(ClaimTypes.NameIdentifier,appUser.Id.ToString()),
@@ -103,7 +103,7 @@ namespace GoKidAPI.Services.TokenStore
                 .AnyAsync(r => r.Token == refreshToken && !r.IsUsed && r.ExpiryDateUtc > DateTime.UtcNow);
         }
 
-        public string GenerateChildJwt(Child child)
+        public string GenerateChildJwt(Entity.Account.Users.Child child)
         {
             var claims = new List<Claim>
             {

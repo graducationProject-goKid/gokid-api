@@ -221,6 +221,31 @@ namespace GoKidAPI.Services.Email
                 return false;
             }
         }
+
+        public async Task SendSupervisorCredentialsAsync(string recipientEmail, string fullName, string email, string password, string loginUrl)
+        {
+            var template = LoadTemplate("supervisor-credentials.html");
+
+            template = template
+                .Replace("{{FullName}}", fullName)
+                .Replace("{{Email}}", email)
+                .Replace("{{Password}}", password)
+                .Replace("{{LoginUrl}}", loginUrl);
+
+            await SendEmailAsync(new[] { recipientEmail }, "Welcome to GO-KID – Your Supervisor Access Details", template);
+        }
+
+        
+
+
+
+
+
+
+
+
+
+
         private string LoadTemplate(string templateName)
         {
             var rootPath = Directory.GetCurrentDirectory();

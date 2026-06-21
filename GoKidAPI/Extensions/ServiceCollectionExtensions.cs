@@ -1,35 +1,49 @@
-﻿using System.Net;
-using System.Net.Mail;
-using System.Reflection;
-using System.Text;
-using System.Threading.RateLimiting;
-
-using FluentValidation;
-
+﻿using FluentValidation;
 using GoKidAPI.Data;
 using GoKidAPI.Entity.Account.Identity;
 using GoKidAPI.Enums.Tasks;
 using GoKidAPI.InfrastructreManage.Options;
+using GoKidAPI.Jobs;
+using GoKidAPI.Services.Adventure;
 using GoKidAPI.Services.Auth;
 using GoKidAPI.Services.Category;
+using GoKidAPI.Services.Child;
+using GoKidAPI.Services.Classes;
 using GoKidAPI.Services.Email;
+using GoKidAPI.Services.Gifts;
 using GoKidAPI.Services.ImageUploading;
+using GoKidAPI.Services.Institution.Implmentation;
+using GoKidAPI.Services.Institution.Interface;
 using GoKidAPI.Services.OTP;
+using GoKidAPI.Services.ParentTasks;
+using GoKidAPI.Services.Points;
+using GoKidAPI.Services.Ranking;
+using GoKidAPI.Services.Rewards;
+using GoKidAPI.Services.Statistics;
+using GoKidAPI.Services.StoryGeneration;
 using GoKidAPI.Services.SubCategory;
+using GoKidAPI.Services.Supervisor;
 using GoKidAPI.Services.TaskTemplate;
 using GoKidAPI.Services.TaskTemplate.Interfaces;
 using GoKidAPI.Services.TokenStore;
+using GoKidAPI.Services.TTSService;
 using GoKidAPI.Shared;
 using GoKidAPI.Validators;
 using GoKidAPI.Validators.Category;
-
+using Google;
+using Hangfire;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.CodeAnalysis.Elfie.Extensions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
-
 using Serilog;
+using System.Net;
+using System.Net.Mail;
+using System.Reflection;
+using System.Text;
+using System.Threading.RateLimiting;
 
 namespace GoKidAPI.Extensions
 {
@@ -99,6 +113,11 @@ namespace GoKidAPI.Extensions
         }
         public static IServiceCollection AddAppIdentity(this IServiceCollection services)
         {
+
+            //services.AddIdentity<AppUser, AppRole>()
+            //        .AddEntityFrameworkStores<AppDbContext>()
+            //        .AddDefaultTokenProviders();
+
             // Work with default identity
             //services.AddDefaultIdentity<AppUser>(opt =>
             //{
@@ -106,7 +125,7 @@ namespace GoKidAPI.Extensions
             //    opt.User.RequireUniqueEmail = true;
             //}).AddEntityFrameworkStores<AppDbContext>();
 
-            //builder.Services.Configure<IdentityOptions>(options =>
+            //services.Configure<IdentityOptions>(options =>
             //{
             //    // Password settings.
             //    options.Password.RequireDigit = true;
@@ -115,12 +134,12 @@ namespace GoKidAPI.Extensions
             //    options.Password.RequireUppercase = true;
             //    options.Password.RequiredLength = 6;
             //    options.Password.RequiredUniqueChars = 1;
-            //
+
             //    // Lockout settings.
             //    options.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(5);
             //    options.Lockout.MaxFailedAccessAttempts = 5;
             //    options.Lockout.AllowedForNewUsers = true;
-            //
+
             //    // User settings.
             //    options.User.AllowedUserNameCharacters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-._@+";
             //    options.User.RequireUniqueEmail = true;
@@ -230,6 +249,27 @@ namespace GoKidAPI.Extensions
             services.AddScoped<IVoiceQuestionTaskService,VoiceQuestionTaskService>();
             services.AddScoped<IEvidenceSubmissionTaskService,EvidenceSubmissionTaskService>();
             services.AddScoped<ITaskTemplateQueryService, TaskTemplateQueryService>();
+            services.AddScoped<IInstitutionSupervisorService, InstitutionSupervisorService>();
+            services.AddScoped<IParentTaskService,ParentTaskService>();
+            services.AddScoped<IClassService,ClassService>();
+            services.AddScoped<IChildService, ChildService>();
+            services.AddScoped<IChildTaskService, ChildTaskService>();
+
+            services.AddScoped<ITextToSpeechService, KokoroTtsService>();
+            services.AddScoped<IStoryTtsService, StoryTtsService>();
+            services.AddScoped<IStoryGenerationService, StoryGenerationService>();
+
+            services.AddScoped<IAdventureService, AdventureService>();
+
+            services.AddScoped<IStatisticsService, StatisticsService>();
+
+            services.AddScoped<ISupervisorService, SupervisorService>();
+            services.AddScoped<IGiftService, GiftService>();
+            services.AddScoped<IRewardService, RewardService>();
+            services.AddScoped<IPointsService,PointsService>();
+
+            services.AddScoped<IRankingService, RankingService>();
+            services.AddScoped<IStatisticsService, StatisticsService>();
 
             return services;
         }
@@ -289,6 +329,30 @@ namespace GoKidAPI.Extensions
                     Credentials = new NetworkCredential(email.Username, email.Password),
                     EnableSsl = email.EnableSsl
                 });
+
+
+            return services;
+        }
+
+        // في ServiceCollectionExtensions.cs أضف الميثود دي
+        public static IServiceCollection AddHangfire(this IServiceCollection services, IConfiguration configuration)
+        {
+            var conMode = configuration["ConnectionMode"] ?? "Default";
+            var conString = configuration.GetConnectionString(conMode)!;
+
+            services.AddHangfire(config => config
+                .SetDataCompatibilityLevel(CompatibilityLevel.Version_180)
+                .UseSimpleAssemblyNameTypeSerializer()
+                .UseRecommendedSerializerSettings()
+                .UseSqlServerStorage(conString));
+
+            services.AddHangfireServer();
+
+            // سجل الـ Job نفسه كـ Scoped
+            services.AddScoped<DailyTaskAssignmentJob>();
+            services.AddScoped<AdventureTtsJob>();
+            services.AddScoped<AdventureAssignmentJob>();
+            services.AddScoped<StoryTtsJob>();
 
 
             return services;
