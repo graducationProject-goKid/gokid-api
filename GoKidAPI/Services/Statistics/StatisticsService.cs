@@ -52,7 +52,9 @@ namespace GoKidAPI.Services.Statistics
                 ChildId = child.Id,
                 ChildName = child.Name,
                 AvatarUrl = child.AvatarUrl,
-                TotalPoints = child.TotalPoints
+                TotalPoints = child.TotalPoints,
+                ChildCode = child.RegistrationCode,
+                CurrentLevel = "1" // Placeholder for current level logic
             };
 
             stats.ThisWeek = await CalculatePeriodStatistics(baseQuery, thisWeekStart, now);

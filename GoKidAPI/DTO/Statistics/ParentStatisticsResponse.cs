@@ -6,6 +6,8 @@
         public string ChildName { get; set; } = null!;
         public string? AvatarUrl { get; set; }
         public int TotalPoints { get; set; }
+        public string CurrentLevel { get; set; } = null!;
+        public string? ChildCode { get; set; } = null!;
 
         public PeriodStatistics ThisWeek { get; set; } = new();
         public PeriodStatistics ThisMonth { get; set; } = new();
