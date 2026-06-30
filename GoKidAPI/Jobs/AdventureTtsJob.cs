@@ -1,9 +1,9 @@
-﻿using GoKidAPI.Data;
-using GoKidAPI.Hubs;
+using GoKidAPI.Data;
+using GoKidAPI.Enums;
 using GoKidAPI.Services.ImageUploading;
+using GoKidAPI.Services.Notifications;
 using GoKidAPI.Services.TTSService;
 
-using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 
 namespace GoKidAPI.Jobs
@@ -13,20 +13,20 @@ namespace GoKidAPI.Jobs
         private readonly AppDbContext _context;
         private readonly ITextToSpeechService _ttsService;
         private readonly IFileUploader _fileUploader;
-        private readonly IHubContext<NotificationHub> _hubContext;
+        private readonly INotificationService _notificationService;
         private readonly ILogger<AdventureTtsJob> _logger;
 
         public AdventureTtsJob(
             AppDbContext context,
             ITextToSpeechService ttsService,
             IFileUploader fileUploader,
-            IHubContext<NotificationHub> hubContext,
+            INotificationService notificationService,
             ILogger<AdventureTtsJob> logger)
         {
             _context = context;
             _ttsService = ttsService;
             _fileUploader = fileUploader;
-            _hubContext = hubContext;
+            _notificationService = notificationService;
             _logger = logger;
         }
 
@@ -56,7 +56,7 @@ namespace GoKidAPI.Jobs
                     adventure.DescriptionVoicePublicId = upload.PublicId;
                 }
 
-                // 2. كل Task StoryText
+                // 2. Each Task StoryText
                 foreach (var task in adventure.Tasks.Where(t => string.IsNullOrEmpty(t.StoryVoiceUrl)
                                                               && !string.IsNullOrWhiteSpace(t.StoryText)))
                 {
@@ -70,16 +70,12 @@ namespace GoKidAPI.Jobs
 
                 await _context.SaveChangesAsync();
 
-                // 3. بعت SignalR Notification للـ Admin
-                await _hubContext.Clients
-                    .Group(adminId)
-                    .SendAsync("AdventureVoiceReady", new
-                    {
-                        adventureId,
-                        title = adventure.TitleEn,
-                        descriptionVoiceUrl = adventure.DescriptionVoiceUrl,
-                        message = $"Voice for adventure '{adventure.TitleEn}' is ready!"
-                    });
+                await _notificationService.SendAsync(
+                    userId: adminId,
+                    type: NotificationType.AdventureStarted,
+                    title: "Adventure Voice Ready",
+                    body: $"Voice for adventure '{adventure.TitleEn}' has been generated successfully.",
+                    relatedEntityId: adventureId);
 
                 _logger.LogInformation("TTS completed for adventure {Id}", adventureId);
             }
@@ -87,14 +83,12 @@ namespace GoKidAPI.Jobs
             {
                 _logger.LogError(ex, "TTS processing failed for adventure {Id}", adventureId);
 
-                // بعت notification بالفشل كمان عشان الـ Admin يعرف
-                await _hubContext.Clients
-                    .Group(adminId)
-                    .SendAsync("AdventureVoiceFailed", new
-                    {
-                        adventureId,
-                        message = "Voice generation failed. Please try again."
-                    });
+                await _notificationService.SendAsync(
+                    userId: adminId,
+                    type: NotificationType.AdventureStarted,
+                    title: "Adventure Voice Failed",
+                    body: "Voice generation failed. Please try again.",
+                    relatedEntityId: adventureId);
             }
         }
 

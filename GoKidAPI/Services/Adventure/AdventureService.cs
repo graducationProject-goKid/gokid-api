@@ -458,10 +458,16 @@ namespace GoKidAPI.Services.Adventure
                                        && a.Institution.InstitutionAdminId == institutionAdminId
                                        && !a.IsDeleted);
 
+            var weeklyAdventureThatActivated = await _context.WeeklyAdventures
+                .Where(w => w.AdventureId == adventureId && !w.IsDeleted)
+                .ToListAsync();
+
+
             if (adventure == null)
                 return _response.NotFound<object>("Adventure not found or you do not have access");
 
             adventure.Status = status;
+            weeklyAdventureThatActivated.ForEach(w => w.Status = status == AdventureStatus.Active ? WeeklyAdventureStatus.Active : WeeklyAdventureStatus.Inactive);
             adventure.UpdatedAt = DateTime.UtcNow;
             adventure.UpdatedBy = institutionAdminId;
 

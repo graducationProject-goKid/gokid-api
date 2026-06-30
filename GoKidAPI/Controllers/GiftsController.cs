@@ -118,5 +118,15 @@ namespace GoKidAPI.Controllers
             var result = await _giftService.GetMyGiftsAsync(CurrentUserId);
             return StatusCode((int)result.StatusCode, result);
         }
+
+        /// <summary>
+        /// Returns all gifts purchased by the parent's active child.
+        /// </summary>
+        [HttpGet("my-child-gifts"), Authorize(Roles = "Parent")]
+        public async Task<IActionResult> GetChildGifts()
+        {
+            var result = await _giftService.GetChildGiftsForParentAsync(CurrentUserId);
+            return StatusCode((int)result.StatusCode, result);
+        }
     }
 }

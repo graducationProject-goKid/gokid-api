@@ -14,5 +14,6 @@ namespace GoKidAPI.Entity
         public string Body { get; set; } = null!;
         public string? RelatedEntityId { get; set; } // ChildTaskId or WeeklyAdventureId
         public bool IsRead { get; set; } = false;
+        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     }
 }

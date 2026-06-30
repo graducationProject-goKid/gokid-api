@@ -173,6 +173,42 @@ namespace GoKidAPI.Controllers
             return StatusCode((int)result.StatusCode, result);
         }
 
+        /// <summary>
+        /// Returns the profile of the authenticated user.
+        /// Parent: returns parent info + active child summary.
+        /// Child: returns child info with class and institution.
+        /// </summary>
+        [Authorize(Roles = "Parent,Child")]
+        [HttpGet("profile")]
+        public async Task<IActionResult> GetProfile()
+        {
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
+            var role = User.FindFirstValue(ClaimTypes.Role);
+
+            if (role == "Parent")
+            {
+                var result = await _authService.GetParentProfileAsync(userId);
+                return StatusCode((int)result.StatusCode, result);
+            }
+            else
+            {
+                var result = await _authService.GetChildProfileAsync(userId);
+                return StatusCode((int)result.StatusCode, result);
+            }
+        }
+
+        /// <summary>
+        /// Registers or updates the device FCM token for push notifications.
+        /// Call this after login from the mobile app (Parent / Child).
+        /// </summary>
+        [Authorize(Roles = "Parent,Child")]
+        [HttpPut("fcm-token")]
+        public async Task<IActionResult> UpdateFcmToken([FromBody] string fcmToken)
+        {
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier)!;
+            var result = await _authService.UpdateFcmTokenAsync(userId, fcmToken);
+            return StatusCode((int)result.StatusCode, result);
+        }
 
     }
 }

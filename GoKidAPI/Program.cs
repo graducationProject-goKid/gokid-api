@@ -115,6 +115,7 @@ namespace GoKidAPI
             //builder.Services.AddAppAuthorization();
 
             builder.Services.AddAppDependencies();
+            builder.Services.AddFirebase(builder.Configuration);
 
             // Swagger
             builder.Services.AddAppSwagger();

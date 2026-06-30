@@ -1,5 +1,6 @@
 ﻿using GoKidAPI.DTO.Account.Auth.Requests;
 using GoKidAPI.DTO.Account.Auth.Responses;
+using GoKidAPI.DTO.Account.Profile;
 using GoKidAPI.Shared;
 
 using Microsoft.AspNetCore.Identity.Data;
@@ -20,5 +21,9 @@ namespace GoKidAPI.Services.Auth
         Task<Response<ForgetPasswordResponse>> ForgotPasswordAsync(ForgetPasswordRequest model, bool useOtp = true);
         Task<Response<ResetPasswordResponse>> ResetPasswordAsync(DTO.Account.Auth.Requests.ResetPasswordRequest model, bool useOtp = true);
 
+        Task<Response<bool>> UpdateFcmTokenAsync(string userId, string fcmToken);
+
+        Task<Response<ParentProfileResponse>> GetParentProfileAsync(string appUserId);
+        Task<Response<ChildProfileResponse>> GetChildProfileAsync(string childId);
     }
 }

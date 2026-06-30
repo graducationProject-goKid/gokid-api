@@ -22,6 +22,10 @@ using GoKidAPI.Services.Rewards;
 using GoKidAPI.Services.Statistics;
 using GoKidAPI.Services.StoryGeneration;
 using GoKidAPI.Services.SubCategory;
+using FirebaseAdmin;
+using Google.Apis.Auth.OAuth2;
+using GoKidAPI.Services.Firebase;
+using GoKidAPI.Services.Notifications;
 using GoKidAPI.Services.Supervisor;
 using GoKidAPI.Services.TaskTemplate;
 using GoKidAPI.Services.TaskTemplate.Interfaces;
@@ -271,6 +275,9 @@ namespace GoKidAPI.Extensions
             services.AddScoped<IRankingService, RankingService>();
             services.AddScoped<IStatisticsService, StatisticsService>();
 
+            services.AddScoped<INotificationService, NotificationService>();
+            services.AddScoped<IFirebaseNotificationService, FirebaseNotificationService>();
+
             return services;
         }
         public static IServiceCollection AddAppSwagger(this IServiceCollection services)
@@ -354,6 +361,24 @@ namespace GoKidAPI.Extensions
             services.AddScoped<AdventureAssignmentJob>();
             services.AddScoped<StoryTtsJob>();
 
+
+            return services;
+        }
+
+        public static IServiceCollection AddFirebase(this IServiceCollection services, IConfiguration configuration)
+        {
+            var credentialPath = configuration["Firebase:CredentialFilePath"]!;
+            var fullPath = Path.IsPathRooted(credentialPath)
+                ? credentialPath
+                : Path.Combine(AppContext.BaseDirectory, credentialPath);
+
+            if (FirebaseApp.DefaultInstance == null)
+            {
+                FirebaseApp.Create(new AppOptions
+                {
+                    Credential = GoogleCredential.FromFile(fullPath)
+                });
+            }
 
             return services;
         }

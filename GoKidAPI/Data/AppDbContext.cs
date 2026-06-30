@@ -134,5 +134,7 @@ namespace GoKidAPI.Data
         public DbSet<Reward> Rewards { get; set; }
         public DbSet<ChildGift> ChildGifts { get; set; }
 
+        public DbSet<Notification> Notifications { get; set; }
+
     }
 }

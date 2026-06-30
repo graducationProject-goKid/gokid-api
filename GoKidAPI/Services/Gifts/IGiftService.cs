@@ -3,6 +3,8 @@ using GoKidAPI.DTO.Gifts.Responses;
 using GoKidAPI.Enums.Gifts;
 using GoKidAPI.Shared;
 
+
+
 namespace GoKidAPI.Services.Gifts
 {
     public interface IGiftService
@@ -18,5 +20,8 @@ namespace GoKidAPI.Services.Gifts
         Task<Response<PaginatedList<GiftResponse>>> GetAvailableGiftsAsync(string childId, int pageNumber, int pageSize);
         Task<Response<PurchaseGiftResponse>> PurchaseGiftAsync(string childId, string giftId);
         Task<Response<List<GiftResponse>>> GetMyGiftsAsync(string childId);
+
+        // Parent
+        Task<Response<List<ChildGiftResponse>>> GetChildGiftsForParentAsync(string parentAppUserId);
     }
 }

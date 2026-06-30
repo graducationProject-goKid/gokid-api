@@ -259,6 +259,39 @@ namespace GoKidAPI.Services.Gifts
             return _response.Success(gifts, "My gifts retrieved successfully");
         }
 
+        public async Task<Response<List<ChildGiftResponse>>> GetChildGiftsForParentAsync(string parentAppUserId)
+        {
+            var activeChildId = await _context.Parents
+                .Where(p => p.AppUserId == parentAppUserId)
+                .Select(p => p.ActiveChildId)
+                .FirstOrDefaultAsync();
+
+            if (activeChildId is null)
+                return _response.NotFound<List<ChildGiftResponse>>("No active child linked to this parent.");
+
+            var gifts = await _context.ChildGifts
+                .Include(cg => cg.Gift)
+                .Where(cg => cg.ChildId == activeChildId && !cg.IsDeleted)
+                .OrderByDescending(cg => cg.PurchasedAt)
+                .Select(cg => new ChildGiftResponse
+                {
+                    ChildGiftId = cg.Id,
+                    GiftId = cg.GiftId,
+                    NameEn = cg.Gift.NameEn,
+                    NameAr = cg.Gift.NameAr,
+                    DescriptionEn = cg.Gift.DescriptionEn,
+                    DescriptionAr = cg.Gift.DescriptionAr,
+                    ImageUrl = cg.Gift.ImageUrl,
+                    PointsCost = cg.Gift.PointsCost,
+                    Type = cg.Gift.Type,
+                    PointsSpent = cg.PointsSpent,
+                    PurchasedAt = cg.PurchasedAt,
+                })
+                .ToListAsync();
+
+            return _response.Success(gifts, "Child gifts retrieved successfully.");
+        }
+
         private static GiftResponse MapToResponse(Gift gift) => new()
         {
             Id = gift.Id,

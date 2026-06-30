@@ -3,6 +3,7 @@
 using GoKidAPI.Data;
 using GoKidAPI.DTO.Account.Auth.Requests;
 using GoKidAPI.DTO.Account.Auth.Responses;
+using GoKidAPI.DTO.Account.Profile;
 using GoKidAPI.Entity.Account.Identity;
 using GoKidAPI.Entity.Account.Users;
 using GoKidAPI.Enums;
@@ -715,6 +716,86 @@ namespace GoKidAPI.Services.Auth
             if (!string.IsNullOrEmpty(email))
                 return await _userManager.FindByEmailAsync(email);
             return null;
+        }
+
+        public async Task<Response<bool>> UpdateFcmTokenAsync(string userId, string fcmToken)
+        {
+            var user = await _userManager.FindByIdAsync(userId);
+            if (user is null)
+                return _responseHandler.NotFound<bool>("User not found.");
+
+            user.FcmToken = fcmToken;
+            await _userManager.UpdateAsync(user);
+
+            return _responseHandler.Success(true, "FCM token updated successfully.");
+        }
+
+        public async Task<Response<ParentProfileResponse>> GetParentProfileAsync(string appUserId)
+        {
+            var parent = await _context.Parents
+                .Include(p => p.AppUser)
+                .Include(p => p.ActiveChild)
+                    .ThenInclude(c => c!.Class)
+                .Include(p => p.ActiveChild)
+                    .ThenInclude(c => c!.Institution)
+                .FirstOrDefaultAsync(p => p.AppUserId == appUserId);
+
+            if (parent is null)
+                return _responseHandler.NotFound<ParentProfileResponse>("Parent profile not found.");
+
+            var response = new ParentProfileResponse
+            {
+                Id = parent.AppUserId,
+                DisplayName = parent.AppUser.DisplayName,
+                Email = parent.AppUser.Email,
+                AvatarUrl = parent.AppUser.AvatarUrl,
+                CreatedAt = parent.AppUser.CreatedAt,
+                ActiveChild = parent.ActiveChild is null ? null : new ChildSummary
+                {
+                    Id = parent.ActiveChild.Id,
+                    Name = parent.ActiveChild.Name,
+                    NickName = parent.ActiveChild.NickName,
+                    Age = parent.ActiveChild.Age,
+                    Gender = parent.ActiveChild.Gender,
+                    AvatarUrl = parent.ActiveChild.AvatarUrl,
+                    TotalPoints = parent.ActiveChild.TotalPoints,
+                    HighestPoints = parent.ActiveChild.HighestPoints,
+                    RegistrationCode = parent.ActiveChild.RegistrationCode,
+                    ClassName = parent.ActiveChild.Class?.Name,
+                    InstitutionName = parent.ActiveChild.Institution?.Name,
+                }
+            };
+
+            return _responseHandler.Success(response, "Parent profile retrieved successfully.");
+        }
+
+        public async Task<Response<ChildProfileResponse>> GetChildProfileAsync(string childId)
+        {
+            var child = await _context.Childrens
+                .Include(c => c.Class)
+                .Include(c => c.Institution)
+                .FirstOrDefaultAsync(c => c.Id == childId);
+
+            if (child is null)
+                return _responseHandler.NotFound<ChildProfileResponse>("Child profile not found.");
+
+            var response = new ChildProfileResponse
+            {
+                Id = child.Id,
+                Name = child.Name,
+                NickName = child.NickName,
+                Age = child.Age,
+                Gender = child.Gender,
+                RelationshipToParent = child.RelationshipToParent,
+                AvatarUrl = child.AvatarUrl,
+                TotalPoints = child.TotalPoints,
+                HighestPoints = child.HighestPoints,
+                RegistrationCode = child.RegistrationCode,
+                ClassName = child.Class?.Name,
+                InstitutionName = child.Institution?.Name,
+            };
+
+            return _responseHandler.Success(response, "Child profile retrieved successfully.");
         }
 
     }

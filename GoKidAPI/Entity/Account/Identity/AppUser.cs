@@ -9,7 +9,7 @@ namespace GoKidAPI.Entity.Account.Identity
         public string? DisplayName { get; set; }
         public string? AvatarUrl { get; set; }
         public UserType UserType { get; set; }
-        //public string? FcmToken { get; set; } // For push notifications
+        public string? FcmToken { get; set; }
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     }
 }
