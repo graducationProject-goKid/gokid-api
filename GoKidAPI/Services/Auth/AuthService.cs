@@ -780,6 +780,8 @@ namespace GoKidAPI.Services.Auth
                     .ThenInclude(c => c!.Class)
                 .Include(p => p.ActiveChild)
                     .ThenInclude(c => c!.Institution)
+                .Include(p => p.ActiveChild)
+                    .ThenInclude(c => c!.Level)
                 .FirstOrDefaultAsync(p => p.Id == appUserId);
 
             if (parent is null)
@@ -805,6 +807,13 @@ namespace GoKidAPI.Services.Auth
                     RegistrationCode = parent.ActiveChild.RegistrationCode,
                     ClassName = parent.ActiveChild.Class?.Name,
                     InstitutionName = parent.ActiveChild.Institution?.Name,
+                    Level = parent.ActiveChild.Level is null ? null : new DTO.Levels.Responses.LevelInfo
+                    {
+                        Id = parent.ActiveChild.Level.Id,
+                        Name = parent.ActiveChild.Level.Name,
+                        Order = parent.ActiveChild.Level.Order,
+                        BadgeUrl = parent.ActiveChild.Level.BadgeUrl,
+                    }
                 }
             };
 
@@ -816,6 +825,7 @@ namespace GoKidAPI.Services.Auth
             var child = await _context.Childrens
                 .Include(c => c.Class)
                 .Include(c => c.Institution)
+                .Include(c => c.Level)
                 .FirstOrDefaultAsync(c => c.Id == childId);
 
             if (child is null)
@@ -835,6 +845,13 @@ namespace GoKidAPI.Services.Auth
                 RegistrationCode = child.RegistrationCode,
                 ClassName = child.Class?.Name,
                 InstitutionName = child.Institution?.Name,
+                Level = child.Level is null ? null : new DTO.Levels.Responses.LevelInfo
+                {
+                    Id = child.Level.Id,
+                    Name = child.Level.Name,
+                    Order = child.Level.Order,
+                    BadgeUrl = child.Level.BadgeUrl,
+                }
             };
 
             return _responseHandler.Success(response, "Child profile retrieved successfully.");

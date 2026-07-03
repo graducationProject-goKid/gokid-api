@@ -1,4 +1,6 @@
-﻿namespace GoKidAPI.DTO.Statistics
+﻿using GoKidAPI.DTO.Levels.Responses;
+
+namespace GoKidAPI.DTO.Statistics
 {
     public class ParentStatisticsResponse
     {
@@ -6,7 +8,7 @@
         public string ChildName { get; set; } = null!;
         public string? AvatarUrl { get; set; }
         public int TotalPoints { get; set; }
-        public string CurrentLevel { get; set; } = null!;
+        public LevelInfo? Level { get; set; }
         public string? ChildCode { get; set; } = null!;
 
         public PeriodStatistics ThisWeek { get; set; } = new();

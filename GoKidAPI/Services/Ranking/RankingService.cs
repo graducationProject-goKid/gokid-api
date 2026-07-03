@@ -1,4 +1,5 @@
 ﻿using GoKidAPI.Data;
+using GoKidAPI.DTO.Levels.Responses;
 using GoKidAPI.DTO.Ranking.Responses;
 using GoKidAPI.Shared;
 
@@ -26,9 +27,9 @@ namespace GoKidAPI.Services.Ranking
                     userRole == "Parent" ? "No child linked to this parent" : "Child not found");
 
             var allChildren = await _context.Childrens
+                .Include(c => c.Level)
                 .Where(c => !c.IsDeleted)
                 .OrderByDescending(c => c.HighestPoints)
-                .Select(c => new { c.Id, c.Name, c.AvatarUrl, c.HighestPoints })
                 .ToListAsync();
 
             var ranked = allChildren
@@ -39,7 +40,14 @@ namespace GoKidAPI.Services.Ranking
                     ChildName = c.Name,
                     AvatarUrl = c.AvatarUrl,
                     HighestPoints = c.HighestPoints,
-                    IsCurrentChild = c.Id == childId
+                    IsCurrentChild = c.Id == childId,
+                    Level = c.Level != null ? new LevelInfo
+                    {
+                        Id = c.Level.Id,
+                        Name = c.Level.Name,
+                        Order = c.Level.Order,
+                        BadgeUrl = c.Level.BadgeUrl
+                    } : null
                 })
                 .ToList();
 
@@ -70,9 +78,9 @@ namespace GoKidAPI.Services.Ranking
                 return _response.BadRequest<RankingResponse>("Child is not enrolled in any institution");
 
             var institutionChildren = await _context.Childrens
+                .Include(c => c.Level)
                 .Where(c => !c.IsDeleted && c.InstitutionId == child.InstitutionId)
                 .OrderByDescending(c => c.HighestPoints)
-                .Select(c => new { c.Id, c.Name, c.AvatarUrl, c.HighestPoints })
                 .ToListAsync();
 
             var ranked = institutionChildren
@@ -83,7 +91,14 @@ namespace GoKidAPI.Services.Ranking
                     ChildName = c.Name,
                     AvatarUrl = c.AvatarUrl,
                     HighestPoints = c.HighestPoints,
-                    IsCurrentChild = c.Id == childId
+                    IsCurrentChild = c.Id == childId,
+                    Level = c.Level != null ? new LevelInfo
+                    {
+                        Id = c.Level.Id,
+                        Name = c.Level.Name,
+                        Order = c.Level.Order,
+                        BadgeUrl = c.Level.BadgeUrl
+                    } : null
                 })
                 .ToList();
 

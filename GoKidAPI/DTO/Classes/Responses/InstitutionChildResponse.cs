@@ -1,4 +1,6 @@
-﻿namespace GoKidAPI.DTO.Classes.Responses
+﻿using GoKidAPI.DTO.Levels.Responses;
+
+namespace GoKidAPI.DTO.Classes.Responses
 {
     public class InstitutionChildResponse
     {
@@ -10,5 +12,6 @@
         public int TotalPoints { get; set; }
         public string? ClassId { get; set; }
         public string? ClassName { get; set; }
+        public LevelInfo? Level { get; set; }
     }
 }

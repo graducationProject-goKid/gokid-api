@@ -1,6 +1,7 @@
 ﻿using GoKidAPI.Data;
 using GoKidAPI.Entity;
 using GoKidAPI.Enums;
+using GoKidAPI.Services.LevelProgression;
 
 using Microsoft.EntityFrameworkCore;
 
@@ -10,11 +11,16 @@ namespace GoKidAPI.Services.Points
     {
         private readonly AppDbContext _context;
         private readonly ILogger<PointsService> _logger;
+        private readonly ILevelProgressionService _levelProgression;
 
-        public PointsService(AppDbContext context, ILogger<PointsService> logger)
+        public PointsService(
+            AppDbContext context,
+            ILogger<PointsService> logger,
+            ILevelProgressionService levelProgression)
         {
             _context = context;
             _logger = logger;
+            _levelProgression = levelProgression;
         }
 
         public async Task AwardPointsAsync(
@@ -22,7 +28,8 @@ namespace GoKidAPI.Services.Points
             int points,
             PointsSourceType sourceType,
             string sourceEntityId,
-            string reason)
+            string reason,
+            string updatedBy)
         {
             var child = await _context.Childrens
                 .FirstOrDefaultAsync(c => c.Id == childId && !c.IsDeleted);
@@ -33,14 +40,11 @@ namespace GoKidAPI.Services.Points
                 return;
             }
 
-            // زوّد النقاط الحالية
             child.TotalPoints += points;
 
-            // حدّث HighestPoints لو النقاط الجديدة أعلى
             if (child.TotalPoints > child.HighestPoints)
                 child.HighestPoints = child.TotalPoints;
 
-            // سجّل الـ Transaction
             _context.PointsTransactions.Add(new PointsTransaction
             {
                 ChildId = childId,
@@ -50,9 +54,13 @@ namespace GoKidAPI.Services.Points
                 SourceEntityId = sourceEntityId
             });
 
+            await _context.SaveChangesAsync();
+
             _logger.LogInformation(
                 "Points awarded: Child={ChildId}, Points={Points}, Total={Total}, Highest={Highest}",
                 childId, points, child.TotalPoints, child.HighestPoints);
+
+            await _levelProgression.CheckAndUpdateLevelAsync(childId, updatedBy);
         }
     }
 }

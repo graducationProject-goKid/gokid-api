@@ -11,6 +11,6 @@ namespace GoKidAPI.Services.Email
         Task SendChangeEmailEmailAsync(string recipientEmail, string userName, string otpOrLink, bool isOtp);
 
         Task SendSupervisorCredentialsAsync(string recipientEmail, string fullName, string email, string password, string loginUrl);
-
+        Task SendInstitutionAdminCredentialsAsync(string recipientEmail, string fullName, string institutionName, string email, string password, string loginUrl);
     }
 }

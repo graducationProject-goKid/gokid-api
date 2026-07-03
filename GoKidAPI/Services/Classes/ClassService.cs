@@ -1,9 +1,12 @@
 ﻿using GoKidAPI.Data;
 using GoKidAPI.DTO.Classes.Requests;
 using GoKidAPI.DTO.Classes.Responses;
+using GoKidAPI.DTO.Levels.Responses;
+using GoKidAPI.Entity.Account.Users;
 using GoKidAPI.Entity.Classes;
 using GoKidAPI.Enums;
 using GoKidAPI.Enums.Shared;
+using GoKidAPI.Services.Notifications;
 using GoKidAPI.Shared;
 
 using Microsoft.EntityFrameworkCore;
@@ -15,15 +18,17 @@ namespace GoKidAPI.Services.Classes
         private readonly AppDbContext _context;
         private readonly ResponseHandler _response;
         private readonly ILogger<ClassService> _logger;
-
+        private readonly INotificationService _notificationService;
         public ClassService(
             AppDbContext context,
             ResponseHandler response,
-            ILogger<ClassService> logger)
+            ILogger<ClassService> logger,
+            INotificationService notificationService)
         {
             _context = context;
             _response = response;
             _logger = logger;
+            _notificationService = notificationService;
         }
 
         public async Task<Response<ClassDetailsResponse>> CreateClassAsync(string adminUserId, CreateClassRequest request)
@@ -196,12 +201,12 @@ namespace GoKidAPI.Services.Classes
             return _response.Success(paginated, "Classes retrieved successfully");
         }
         public async Task<Response<SupervisorAssignmentResponse>> AssignSupervisorToClassAsync(
-    string adminUserId,
-    string classId,
-    AssignSupervisorToClassRequest request)
+            string adminUserId,
+            string classId,
+            AssignSupervisorToClassRequest request)
         {
-            var institution = await _context.Institutions
-                .FirstOrDefaultAsync(i => i.InstitutionAdminId == adminUserId);
+            var institution = await _context.InstitutionAdmins
+                .FirstOrDefaultAsync(i => i.Id == adminUserId);
 
             if (institution == null)
                 return _response.NotFound<SupervisorAssignmentResponse>("No institution found for this admin");
@@ -246,6 +251,14 @@ namespace GoKidAPI.Services.Classes
 
             await _context.SaveChangesAsync();
 
+            // Send notification to the supervisor about the assignment
+            await _notificationService.SendAsync(
+                supervisor.AppUserId,
+                NotificationType.SupervisorAssignedToClass,
+                "Class Assigned",
+                $"You have been assigned as the supervisor of {classEntity.Name}.",
+                classEntity.Id
+            );
             var responseData = new SupervisorAssignmentResponse
             {
                 ClassId = classEntity.Id,
@@ -293,6 +306,14 @@ namespace GoKidAPI.Services.Classes
             assignment.UpdatedBy = adminUserId;
 
             await _context.SaveChangesAsync();
+
+            await _notificationService.SendAsync(
+                userId: assignment.SupervisorId,
+                type: NotificationType.SupervisorUnassignedFromClass,
+                title: "Class Unassigned",
+                body: $"You have been removed as the supervisor of '{assignment.Class.Name}'.",
+                relatedEntityId: assignment.ClassId
+            );
 
             var responseData = new SupervisorAssignmentResponse
             {
@@ -432,6 +453,22 @@ namespace GoKidAPI.Services.Classes
 
             await _context.SaveChangesAsync();
 
+            var supervisorUserIds = await _context.ClassSupervisors
+                .Where(cs => cs.ClassId == classId && !cs.IsDeleted)
+                .Select(cs => cs.Supervisor.AppUserId)
+                .ToListAsync();
+
+            foreach (var supervisorUserId in supervisorUserIds)
+            {
+                await _notificationService.SendAsync(
+                    userId: supervisorUserId,
+                    type: NotificationType.ChildEnrolledToClass,
+                    title: "New Child Joined",
+                    body: $"{child.Name} has been enrolled in your class '{classEntity.Name}'.",
+                    relatedEntityId: classEntity.Id
+                );
+            }
+
             _logger.LogInformation(
                 "Child {ChildId} enrolled in Class {ClassId} by Admin {AdminId}",
                 child.Id, classId, adminUserId);
@@ -468,12 +505,32 @@ namespace GoKidAPI.Services.Classes
             if (child == null)
                 return _response.NotFound<object>("Child not found in this class");
 
+            var classEntityForNotification = await _context.Classes
+                .FirstOrDefaultAsync(c => c.Id == classId && !c.IsDeleted);
+
+            var supervisorUserIds = await _context.ClassSupervisors
+                 .Where(cs => cs.ClassId == classId && !cs.IsDeleted)
+                 .Select(cs => cs.Supervisor.AppUserId)
+                 .ToListAsync();
+
+
             // شيل من الكلاس بس، يفضل في المؤسسة
             child.ClassId = null;
             child.UpdatedAt = DateTime.UtcNow;
             child.UpdatedBy = adminUserId;
 
             await _context.SaveChangesAsync();
+
+            foreach (var supervisorUserId in supervisorUserIds)
+            {
+                await _notificationService.SendAsync(
+                    userId: supervisorUserId,
+                    type: NotificationType.ChildRemovedFromClass,
+                    title: "Child Removed",
+                    body: $"{child.Name} has been removed from your class '{classEntityForNotification.Name}'.",
+                    relatedEntityId: classEntityForNotification.Id
+                );
+            }
 
             _logger.LogInformation(
                 "Child {ChildId} removed from Class {ClassId} by Admin {AdminId}",
@@ -483,11 +540,11 @@ namespace GoKidAPI.Services.Classes
         }
 
         public async Task<Response<PaginatedList<InstitutionChildResponse>>> GetInstitutionChildrenAsync(
-    string adminUserId,
-    int pageNumber,
-    int pageSize,
-    string? search = null,
-    string? classId = null)
+            string adminUserId,
+            int pageNumber,
+            int pageSize,
+            string? search = null,
+            string? classId = null)
         {
             var institution = await _context.Institutions
                 .FirstOrDefaultAsync(i => i.InstitutionAdminId == adminUserId);
@@ -498,6 +555,7 @@ namespace GoKidAPI.Services.Classes
 
             var query = _context.Childrens
                 .Include(c => c.Class)
+                .Include(c => c.Level)
                 .Where(c => c.InstitutionId == institution.Id && !c.IsDeleted);
 
             // فلتر بالاسم
@@ -514,22 +572,30 @@ namespace GoKidAPI.Services.Classes
 
             var totalCount = await query.CountAsync();
 
-            var children = await query
+            var childEntities = await query
                 .OrderBy(c => c.Name)
                 .Skip((pageNumber - 1) * pageSize)
                 .Take(pageSize)
-                .Select(c => new InstitutionChildResponse
-                {
-                    ChildId = c.Id,
-                    ChildName = c.Name,
-                    NickName = c.NickName,
-                    AvatarUrl = c.AvatarUrl,
-                    Age = c.Age,
-                    TotalPoints = c.TotalPoints,
-                    ClassId = c.ClassId,
-                    ClassName = c.Class != null ? c.Class.Name : null
-                })
                 .ToListAsync();
+
+            var children = childEntities.Select(c => new InstitutionChildResponse
+            {
+                ChildId = c.Id,
+                ChildName = c.Name,
+                NickName = c.NickName,
+                AvatarUrl = c.AvatarUrl,
+                Age = c.Age,
+                TotalPoints = c.TotalPoints,
+                ClassId = c.ClassId,
+                ClassName = c.Class?.Name,
+                Level = c.Level != null ? new LevelInfo
+                {
+                    Id = c.Level.Id,
+                    Name = c.Level.Name,
+                    Order = c.Level.Order,
+                    BadgeUrl = c.Level.BadgeUrl
+                } : null
+            }).ToList();
 
             var paginated = new PaginatedList<InstitutionChildResponse>(
                 children, pageNumber, pageSize, totalCount);

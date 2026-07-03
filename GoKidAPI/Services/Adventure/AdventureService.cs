@@ -9,6 +9,7 @@ using GoKidAPI.Enums.Adventures;
 using GoKidAPI.Enums.Shared;
 using GoKidAPI.Jobs;
 using GoKidAPI.Services.ImageUploading;
+using GoKidAPI.Services.Notifications;
 using GoKidAPI.Services.StoryGeneration;
 using GoKidAPI.Services.TTSService;
 using GoKidAPI.Shared;
@@ -32,6 +33,7 @@ namespace GoKidAPI.Services.Adventure
         private readonly ResponseHandler _response;
         private readonly ILogger<AdventureService> _logger;
         private readonly IBackgroundJobClient _backgroundJobClient;
+        private readonly INotificationService _notificationService;
 
 
         public AdventureService(
@@ -42,7 +44,8 @@ namespace GoKidAPI.Services.Adventure
             ResponseHandler response,
             ILogger<AdventureService> logger,
             IBackgroundJobClient backgroundJobClient,
-            IStoryGenerationService storyGenerationService)
+            IStoryGenerationService storyGenerationService,
+            INotificationService notificationService)
         {
             _context = context;
             _userManager = userManager;
@@ -52,6 +55,7 @@ namespace GoKidAPI.Services.Adventure
             _logger = logger;
             _backgroundJobClient = backgroundJobClient;
             _storyGenerationService = storyGenerationService;
+            _notificationService = notificationService;
         }
 
         public async Task<Shared.Response<CreateAdventureResponse>> CreateAdventureAsync(
@@ -61,7 +65,7 @@ namespace GoKidAPI.Services.Adventure
             // 1. التحقق من صلاحية الـ InstitutionAdmin
             var institutionAdmin = await _context.InstitutionAdmins
                 .Include(a => a.Institution)
-                .FirstOrDefaultAsync(a => a.AppUserId == institutionAdminId);
+                .FirstOrDefaultAsync(a => a.Id == institutionAdminId);
 
             if (institutionAdmin?.Institution == null)
                 return _response.NotFound<CreateAdventureResponse>("No institution found for this admin");
@@ -484,7 +488,7 @@ namespace GoKidAPI.Services.Adventure
             // 1. التحقق من الـ InstitutionAdmin ومؤسسته
             var institutionAdmin = await _context.InstitutionAdmins
                 .Include(a => a.Institution)
-                .FirstOrDefaultAsync(a => a.AppUserId == institutionAdminId);
+                .FirstOrDefaultAsync(a => a.Id == institutionAdminId);
 
             if (institutionAdmin?.Institution == null)
                 return _response.NotFound<AssignAdventureToClassResponse>("No institution found for this admin");
@@ -534,6 +538,23 @@ namespace GoKidAPI.Services.Adventure
 
             _context.WeeklyAdventures.Add(weeklyAdventure);
             await _context.SaveChangesAsync();
+
+            // Get the list of supervisor user IDs for the class to notify them
+            var supervisorUserIds = await _context.ClassSupervisors
+                .Where(cs => cs.ClassId == request.ClassId && !cs.IsDeleted)
+                .Select(cs => cs.Supervisor.AppUserId)
+                .ToListAsync();
+
+            foreach (var supervisorUserId in supervisorUserIds)
+            {
+                await _notificationService.SendAsync(
+                    userId: supervisorUserId,
+                    type: NotificationType.WeeklyAdventureStarted,
+                    title: "Weekly Adventure Started",
+                    body: $"A new weekly adventure '{adventure.TitleEn}' has been assigned and started to your class '{classEntity.Name}'.",
+                    relatedEntityId: weeklyAdventure.Id
+                );
+            }
 
             // After assignation 
             _backgroundJobClient.Enqueue<AdventureAssignmentJob>(

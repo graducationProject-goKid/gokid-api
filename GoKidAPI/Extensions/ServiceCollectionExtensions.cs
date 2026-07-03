@@ -14,6 +14,9 @@ using GoKidAPI.Services.Gifts;
 using GoKidAPI.Services.ImageUploading;
 using GoKidAPI.Services.Institution.Implmentation;
 using GoKidAPI.Services.Institution.Interface;
+using GoKidAPI.Services.Dashboard;
+using GoKidAPI.Services.LevelProgression;
+using GoKidAPI.Services.Levels;
 using GoKidAPI.Services.OTP;
 using GoKidAPI.Services.ParentTasks;
 using GoKidAPI.Services.Points;
@@ -254,6 +257,7 @@ namespace GoKidAPI.Extensions
             services.AddScoped<IEvidenceSubmissionTaskService,EvidenceSubmissionTaskService>();
             services.AddScoped<ITaskTemplateQueryService, TaskTemplateQueryService>();
             services.AddScoped<IInstitutionSupervisorService, InstitutionSupervisorService>();
+            services.AddScoped<IInstitutionService, InstitutionService>();
             services.AddScoped<IParentTaskService,ParentTaskService>();
             services.AddScoped<IClassService,ClassService>();
             services.AddScoped<IChildService, ChildService>();
@@ -277,6 +281,11 @@ namespace GoKidAPI.Extensions
 
             services.AddScoped<INotificationService, NotificationService>();
             services.AddScoped<IFirebaseNotificationService, FirebaseNotificationService>();
+            services.AddScoped<ILevelService, LevelService>();
+            services.AddScoped<ILevelProgressionService, LevelProgressionService>();
+            services.AddScoped<IPlatformDashboardService, PlatformDashboardService>();
+            services.AddScoped<IInstitutionDashboardService, InstitutionDashboardService>();
+            services.AddScoped<ISupervisorDashboardService, SupervisorDashboardService>();
 
             return services;
         }

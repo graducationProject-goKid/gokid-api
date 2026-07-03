@@ -1,4 +1,6 @@
-﻿namespace GoKidAPI.DTO.Ranking.Responses
+﻿using GoKidAPI.DTO.Levels.Responses;
+
+namespace GoKidAPI.DTO.Ranking.Responses
 {
     public class RankingItemResponse
     {
@@ -8,5 +10,6 @@
         public string? AvatarUrl { get; set; }
         public int HighestPoints { get; set; }
         public bool IsCurrentChild { get; set; }  // عشان الـ Frontend يعرف يـ highlight
+        public LevelInfo? Level { get; set; }
     }
 }

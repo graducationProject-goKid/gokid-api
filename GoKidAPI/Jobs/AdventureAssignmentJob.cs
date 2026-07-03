@@ -90,7 +90,7 @@ namespace GoKidAPI.Jobs
             // Notify every child in the class that the adventure has started
             foreach (var child in children)
             {
-                _ = _notificationService.SendAsync(
+                await _notificationService.SendAsync(
                     child.Id,
                     NotificationType.AdventureStarted,
                     "New Adventure!",
@@ -179,6 +179,13 @@ namespace GoKidAPI.Jobs
 
             await _context.SaveChangesAsync();
 
+            await NotifyClassSupervisorsAsync(
+                weeklyAdventure.ClassId,
+                NotificationType.AdventureDayCompleted,
+                "Day Completed",
+                $"Day {previousDayNumber} of '{weeklyAdventure.Adventure.TitleEn}' has ended. Review your children's task results.",
+                weeklyAdventure.Id);
+
             _logger.LogInformation(
                 "Missed tasks created: {Count} for WeeklyAdventure {Id}",
                 missedTasks.Count, weeklyAdventure.Id);
@@ -189,13 +196,44 @@ namespace GoKidAPI.Jobs
             {
                 foreach (var childId in childIds)
                 {
-                    _ = _notificationService.SendAsync(
+                    await _notificationService.SendAsync(
                         childId,
                         NotificationType.AdventureNewDay,
                         $"Day {currentDayNumber} Unlocked!",
                         $"Day {currentDayNumber} of \"{weeklyAdventure.Adventure.TitleEn}\" is ready. Don't miss it!",
                         weeklyAdventure.Id);
                 }
+
+                await NotifyClassSupervisorsAsync(
+                    weeklyAdventure.ClassId,
+                    NotificationType.DailyAdventureTasksAssigned,
+                    "Daily Tasks Assigned",
+                    $"Day {currentDayNumber} tasks for '{weeklyAdventure.Adventure.TitleEn}' have been assigned to the children in class '{weeklyAdventure.Class.Name}'.",
+                    weeklyAdventure.Id);
+            }
+        }
+
+        // Helper method to notify all supervisors of a class about a specific event
+        private async Task NotifyClassSupervisorsAsync(
+            string classId,
+            NotificationType type,
+            string title,
+            string body,
+            string? relatedEntityId = null)
+        {
+            var supervisorUserIds = await _context.ClassSupervisors
+                .Where(cs => cs.ClassId == classId && !cs.IsDeleted)
+                .Select(cs => cs.Supervisor.AppUserId)
+                .ToListAsync();
+
+            foreach (var supervisorUserId in supervisorUserIds)
+            {
+                await _notificationService.SendAsync(
+                    supervisorUserId,
+                    type,
+                    title,
+                    body,
+                    relatedEntityId);
             }
         }
     }

@@ -1,12 +1,14 @@
 ﻿// Services/Supervisor/SupervisorService.cs
 using GoKidAPI.Data;
 using GoKidAPI.DTO.Childs.Responses;
+using GoKidAPI.DTO.Levels.Responses;
 using GoKidAPI.DTO.Supervisor.Requests;
 using GoKidAPI.DTO.Supervisor.Responses;
 using GoKidAPI.Entity;
 using GoKidAPI.Entity.Institiution;
 using GoKidAPI.Enums;
 using GoKidAPI.Enums.Adventures;
+using GoKidAPI.Services.LevelProgression;
 using GoKidAPI.Services.Notifications;
 using GoKidAPI.Shared;
 
@@ -20,17 +22,20 @@ namespace GoKidAPI.Services.Supervisor
         private readonly ResponseHandler _response;
         private readonly ILogger<SupervisorService> _logger;
         private readonly INotificationService _notificationService;
+        private readonly ILevelProgressionService _levelProgression;
 
         public SupervisorService(
             AppDbContext context,
             ResponseHandler response,
             ILogger<SupervisorService> logger,
-            INotificationService notificationService)
+            INotificationService notificationService,
+            ILevelProgressionService levelProgression)
         {
             _context = context;
             _response = response;
             _logger = logger;
             _notificationService = notificationService;
+            _levelProgression = levelProgression;
         }
 
         public async Task<Response<List<SupervisorAdventureListResponse>>> GetMyAdventuresAsync(string supervisorUserId)
@@ -98,6 +103,7 @@ namespace GoKidAPI.Services.Supervisor
 
             var query = _context.ChildAdventureTasks
                 .Include(cat => cat.Child)
+                    .ThenInclude(c => c.Level)
                 .Include(cat => cat.AdventureTask)
                     .ThenInclude(at => at.TaskTemplate)
                 .Where(cat => cat.WeeklyAdventureId == weeklyAdventureId && !cat.IsDeleted);
@@ -108,27 +114,35 @@ namespace GoKidAPI.Services.Supervisor
 
             var totalCount = await query.CountAsync();
 
-            var tasks = await query
+            var rawTasks = await query
                 .OrderByDescending(cat => cat.SubmittedAt)
                 .Skip((pageNumber - 1) * pageSize)
                 .Take(pageSize)
-                .Select(cat => new ChildAdventureTaskReviewResponse
-                {
-                    ChildAdventureTaskId = cat.Id,
-                    ChildId = cat.ChildId,
-                    ChildName = cat.Child.Name,
-                    ChildAvatarUrl = cat.Child.AvatarUrl,
-                    DayNumber = cat.AdventureTask.DayNumber,
-                    TaskTitleEn = cat.AdventureTask.TaskTemplate.TitleEn,
-                    TaskTitleAr = cat.AdventureTask.TaskTemplate.TitleAr,
-                    EvidenceUrl = cat.EvidenceUrl,
-                    Status = cat.Status,
-                    SubmittedAt = cat.SubmittedAt,
-                    IsApproved = cat.IsApproved,
-                    ReviewedBy = cat.ReviewedBy,
-                    ReviewedAt = cat.ReviewedAt
-                })
                 .ToListAsync();
+
+            var tasks = rawTasks.Select(cat => new ChildAdventureTaskReviewResponse
+            {
+                ChildAdventureTaskId = cat.Id,
+                ChildId = cat.ChildId,
+                ChildName = cat.Child.Name,
+                ChildAvatarUrl = cat.Child.AvatarUrl,
+                Level = cat.Child.Level != null ? new LevelInfo
+                {
+                    Id = cat.Child.Level.Id,
+                    Name = cat.Child.Level.Name,
+                    Order = cat.Child.Level.Order,
+                    BadgeUrl = cat.Child.Level.BadgeUrl
+                } : null,
+                DayNumber = cat.AdventureTask.DayNumber,
+                TaskTitleEn = cat.AdventureTask.TaskTemplate.TitleEn,
+                TaskTitleAr = cat.AdventureTask.TaskTemplate.TitleAr,
+                EvidenceUrl = cat.EvidenceUrl,
+                Status = cat.Status,
+                SubmittedAt = cat.SubmittedAt,
+                IsApproved = cat.IsApproved,
+                ReviewedBy = cat.ReviewedBy,
+                ReviewedAt = cat.ReviewedAt
+            }).ToList();
 
             var paginated = new PaginatedList<ChildAdventureTaskReviewResponse>(
                 tasks, pageNumber, pageSize, totalCount);
@@ -143,6 +157,7 @@ namespace GoKidAPI.Services.Supervisor
         {
             var childTask = await _context.ChildAdventureTasks
                 .Include(cat => cat.Child)
+                    .ThenInclude(c => c.Level)
                 .Include(cat => cat.AdventureTask)
                     .ThenInclude(at => at.TaskTemplate)
                 .Include(cat => cat.Progress)
@@ -215,6 +230,9 @@ namespace GoKidAPI.Services.Supervisor
 
             await _context.SaveChangesAsync();
 
+            if (request.IsApproved)
+                await _levelProgression.CheckAndUpdateLevelAsync(childTask.ChildId, supervisorUserId);
+
             _logger.LogInformation(
                 "Supervisor {SupervisorId} {Action} task {TaskId} for child {ChildId}",
                 supervisorUserId,
@@ -224,7 +242,7 @@ namespace GoKidAPI.Services.Supervisor
 
             if (request.IsApproved)
             {
-                _ = _notificationService.SendAsync(
+                await _notificationService.SendAsync(
                     childTask.ChildId,
                     NotificationType.TaskApproved,
                     "Adventure Task Approved!",
@@ -234,12 +252,12 @@ namespace GoKidAPI.Services.Supervisor
             }
             else
             {
-                _ = _notificationService.SendAsync(
+                await _notificationService.SendAsync(
                     childTask.ChildId,
                     NotificationType.TaskRejected,
                     "Try Again!",
                     $"Your supervisor sent back day {childTask.AdventureTask.DayNumber} of " +
-                    $"\"{childTask.WeeklyAdventure.Adventure.TitleEn}\". Re-upload your evidence.",
+                    $"\"{childTask.WeeklyAdventure.Adventure.TitleEn}\". Re-Submit your Task.",
                     childTask.WeeklyAdventureId);
             }
 
@@ -249,6 +267,13 @@ namespace GoKidAPI.Services.Supervisor
                 ChildId = childTask.ChildId,
                 ChildName = childTask.Child.Name,
                 ChildAvatarUrl = childTask.Child.AvatarUrl,
+                Level = childTask.Child.Level != null ? new LevelInfo
+                {
+                    Id = childTask.Child.Level.Id,
+                    Name = childTask.Child.Level.Name,
+                    Order = childTask.Child.Level.Order,
+                    BadgeUrl = childTask.Child.Level.BadgeUrl
+                } : null,
                 DayNumber = childTask.AdventureTask.DayNumber,
                 TaskTitleEn = childTask.AdventureTask.TaskTemplate.TitleEn,
                 TaskTitleAr = childTask.AdventureTask.TaskTemplate.TitleAr,
@@ -265,9 +290,9 @@ namespace GoKidAPI.Services.Supervisor
         }
 
         public async Task<Response<List<ClassChildrenListResponse>>> GetClassChildrenProgressAsync(
-    string supervisorUserId,
-    string weeklyAdventureId,
-    string classId)
+            string supervisorUserId,
+            string weeklyAdventureId,
+            string classId)
         {
             // تحقق إن الـ Supervisor عنده access على الـ WeeklyAdventure دي
             var hasAccess = await SupervisorHasAccessToWeeklyAdventureAsync(supervisorUserId, weeklyAdventureId);
@@ -285,6 +310,7 @@ namespace GoKidAPI.Services.Supervisor
 
             // جيب كل الأطفال في الكلاس ده
             var children = await _context.Childrens
+                .Include(c => c.Level)
                 .Where(c => c.ClassId == classId && !c.IsDeleted)
                 .ToListAsync();
 
@@ -326,7 +352,14 @@ namespace GoKidAPI.Services.Supervisor
                     CompletedTasksCount = childTasks.Count(t => t.Status == AdventureChildTaskStatus.Completed),
                     EarnedStars = progress?.EarnedStars ?? 0,
                     EarnedPoints = progress?.EarnedPoints ?? 0,
-                    IsAdventureCompleted = progress?.IsCompleted ?? false
+                    IsAdventureCompleted = progress?.IsCompleted ?? false,
+                    Level = child.Level != null ? new LevelInfo
+                    {
+                        Id = child.Level.Id,
+                        Name = child.Level.Name,
+                        Order = child.Level.Order,
+                        BadgeUrl = child.Level.BadgeUrl
+                    } : null
                 };
             })
             .OrderByDescending(c => c.CompletedTasksCount)  // الأكثر إنجازاً أولاً
@@ -348,6 +381,7 @@ namespace GoKidAPI.Services.Supervisor
 
             // جيب الطفل
             var child = await _context.Childrens
+                .Include(c => c.Level)
                 .FirstOrDefaultAsync(c => c.Id == childId && !c.IsDeleted);
 
             if (child == null)
@@ -380,6 +414,13 @@ namespace GoKidAPI.Services.Supervisor
                 ChildId = child.Id,
                 ChildName = child.Name,
                 ChildAvatarUrl = child.AvatarUrl,
+                Level = child.Level != null ? new LevelInfo
+                {
+                    Id = child.Level.Id,
+                    Name = child.Level.Name,
+                    Order = child.Level.Order,
+                    BadgeUrl = child.Level.BadgeUrl
+                } : null,
 
                 // Summary من الـ Progress
                 TotalTasks = totalTasks,

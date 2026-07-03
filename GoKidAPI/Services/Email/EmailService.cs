@@ -235,6 +235,20 @@ namespace GoKidAPI.Services.Email
             await SendEmailAsync(new[] { recipientEmail }, "Welcome to GO-KID – Your Supervisor Access Details", template);
         }
 
+        public async Task SendInstitutionAdminCredentialsAsync(string recipientEmail, string fullName, string institutionName, string email, string password, string loginUrl)
+        {
+            var template = LoadTemplate("institution-admin-credentials.html");
+
+            template = template
+                .Replace("{{FullName}}", fullName)
+                .Replace("{{InstitutionName}}", institutionName)
+                .Replace("{{Email}}", email)
+                .Replace("{{Password}}", password)
+                .Replace("{{LoginUrl}}", loginUrl);
+
+            await SendEmailAsync(new[] { recipientEmail }, "Welcome to GO-KID – Your Institution Admin Access Details", template);
+        }
+
         
 
 

@@ -1,4 +1,5 @@
 ﻿using GoKidAPI.Data;
+using GoKidAPI.DTO.Levels.Responses;
 using GoKidAPI.DTO.Tasks.Requests;
 using GoKidAPI.DTO.Tasks.Responses;
 using GoKidAPI.Entity;
@@ -7,6 +8,7 @@ using GoKidAPI.Entity.Tasks;
 using GoKidAPI.Enums;
 using GoKidAPI.Enums.Shared;
 using GoKidAPI.Enums.Tasks;
+using GoKidAPI.Services.LevelProgression;
 using GoKidAPI.Services.Notifications;
 using GoKidAPI.Shared;
 
@@ -24,17 +26,20 @@ namespace GoKidAPI.Services.ParentTasks
         private readonly ResponseHandler _response;
         private readonly ILogger<ParentTaskService> _logger;
         private readonly INotificationService _notificationService;
+        private readonly ILevelProgressionService _levelProgression;
 
         public ParentTaskService(
             AppDbContext context,
             ResponseHandler response,
             ILogger<ParentTaskService> logger,
-            INotificationService notificationService)
+            INotificationService notificationService,
+            ILevelProgressionService levelProgression)
         {
             _context = context;
             _response = response;
             _logger = logger;
             _notificationService = notificationService;
+            _levelProgression = levelProgression;
         }
 
         public async Task<Response<AssignTaskResponse>> AssignTaskToChildAsync(string parentId, AssignTaskRequest request)
@@ -157,6 +162,8 @@ namespace GoKidAPI.Services.ParentTasks
 
                 await _context.SaveChangesAsync();
 
+                await _levelProgression.CheckAndUpdateLevelAsync(task.ChildId, parentId);
+
                 _ = _notificationService.SendAsync(
                     task.ChildId,
                     NotificationType.TaskApproved,
@@ -277,6 +284,7 @@ namespace GoKidAPI.Services.ParentTasks
             var task = await _context.ChildTasks
                 .Include(ct => ct.Template)
                 .Include(ct => ct.Child)
+                    .ThenInclude(c => c.Level)
                 .FirstOrDefaultAsync(ct => ct.Id == childTaskId
                                         && ct.Child.ParentId == parentId
                                         && !ct.IsDeleted);
@@ -290,6 +298,13 @@ namespace GoKidAPI.Services.ParentTasks
                 ChildId = task.ChildId,
                 ChildName = task.Child.Name,
                 ChildNickName = task.Child.NickName,
+                Level = task.Child.Level != null ? new LevelInfo
+                {
+                    Id = task.Child.Level.Id,
+                    Name = task.Child.Level.Name,
+                    Order = task.Child.Level.Order,
+                    BadgeUrl = task.Child.Level.BadgeUrl
+                } : null,
                 TaskTemplateId = task.TaskTemplateId,
                 TitleAr = task.Template.TitleAr,
                 TitleEn = task.Template.TitleEn,
@@ -324,6 +339,7 @@ namespace GoKidAPI.Services.ParentTasks
             var task = await _context.ChildTasks
                 .Include(ct => ct.Template)
                 .Include(ct => ct.Child)
+                    .ThenInclude(c => c.Level)
                 .FirstOrDefaultAsync(ct => ct.Id == childTaskId
                                         && ct.Child.ParentId == parentId
                                         && !ct.IsDeleted);
@@ -337,6 +353,13 @@ namespace GoKidAPI.Services.ParentTasks
                 ChildId = task.ChildId,
                 ChildName = task.Child.Name,
                 ChildNickName = task.Child.NickName,
+                Level = task.Child.Level != null ? new LevelInfo
+                {
+                    Id = task.Child.Level.Id,
+                    Name = task.Child.Level.Name,
+                    Order = task.Child.Level.Order,
+                    BadgeUrl = task.Child.Level.BadgeUrl
+                } : null,
                 TaskTemplateId = task.TaskTemplateId,
                 TitleAr = task.Template.TitleAr,
                 TitleEn = task.Template.TitleEn,

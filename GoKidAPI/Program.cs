@@ -133,6 +133,7 @@ namespace GoKidAPI
 
                 await RoleSeeder.SeedAsync(roleManager);
                 await CategoriesSeeder.SeedAsync(context);
+                await LevelSeeder.SeedAsync(context);
 
                 await UserSeeder.SeedAsync(userManager);
             }

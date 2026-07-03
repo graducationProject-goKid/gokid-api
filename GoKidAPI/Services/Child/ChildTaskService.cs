@@ -706,7 +706,8 @@ namespace GoKidAPI.Services.Child
                         template.BasePoints,
                         PointsSourceType.ChildTask,
                         childAdventureTask.Id,
-                        $"Completed Adventure Task: {template.TitleEn}"
+                        $"Completed Adventure Task: {template.TitleEn}",
+                        childId
                     );
 
                     response.Status = Enums.Tasks.TaskStatus.Completed;
@@ -741,7 +742,8 @@ namespace GoKidAPI.Services.Child
                             template.BasePoints,
                             PointsSourceType.ChildTask,
                             childAdventureTask.Id,
-                            $"Completed Adventure VoiceQuestion: {template.TitleEn}"
+                            $"Completed Adventure VoiceQuestion: {template.TitleEn}",
+                            childId
                         );
 
                         response.AwardedPoints = template.BasePoints;

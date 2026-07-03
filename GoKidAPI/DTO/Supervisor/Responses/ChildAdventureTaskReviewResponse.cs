@@ -1,4 +1,5 @@
-﻿using GoKidAPI.Enums.Adventures;
+﻿using GoKidAPI.DTO.Levels.Responses;
+using GoKidAPI.Enums.Adventures;
 
 namespace GoKidAPI.DTO.Supervisor.Responses
 {
@@ -8,6 +9,7 @@ namespace GoKidAPI.DTO.Supervisor.Responses
         public string ChildId { get; set; } = null!;
         public string ChildName { get; set; } = null!;
         public string? ChildAvatarUrl { get; set; }
+        public LevelInfo? Level { get; set; }
         public int DayNumber { get; set; }
         public string TaskTitleEn { get; set; } = null!;
         public string TaskTitleAr { get; set; } = null!;

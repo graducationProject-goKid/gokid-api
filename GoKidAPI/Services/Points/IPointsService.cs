@@ -9,6 +9,7 @@ namespace GoKidAPI.Services.Points
             int points,
             PointsSourceType sourceType,
             string sourceEntityId,
-            string reason);
+            string reason,
+            string updatedBy);
     }
 }

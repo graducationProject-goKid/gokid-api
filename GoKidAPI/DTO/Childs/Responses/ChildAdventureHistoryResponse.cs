@@ -1,10 +1,13 @@
-﻿namespace GoKidAPI.DTO.Childs.Responses
+﻿using GoKidAPI.DTO.Levels.Responses;
+
+namespace GoKidAPI.DTO.Childs.Responses
 {
     public class ChildAdventureHistoryResponse
     {
         public string ChildId { get; set; } = null!;
         public string ChildName { get; set; } = null!;
         public string? ChildAvatarUrl { get; set; }
+        public LevelInfo? Level { get; set; }
 
         // Summary
         public int TotalTasks { get; set; }

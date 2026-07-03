@@ -1,4 +1,5 @@
-﻿using GoKidAPI.Enums.Tasks;
+﻿using GoKidAPI.DTO.Levels.Responses;
+using GoKidAPI.Enums.Tasks;
 
 namespace GoKidAPI.DTO.Tasks.Responses
 {
@@ -8,6 +9,7 @@ namespace GoKidAPI.DTO.Tasks.Responses
         public string ChildId { get; set; } = null!;
         public string ChildName { get; set; } = null!;
         public string ChildNickName { get; set; } = null!;
+        public LevelInfo? Level { get; set; }
 
         public string TaskTemplateId { get; set; } = null!;
         public string TitleAr { get; set; } = null!;

@@ -3,6 +3,7 @@ using GoKidAPI.Entity.Base;
 using GoKidAPI.Entity.Classes;
 using GoKidAPI.Entity.Gifts;
 using GoKidAPI.Entity.Institiution;
+using GoKidAPI.Entity.Levels;
 using GoKidAPI.Entity.Tasks;
 using GoKidAPI.Enums;
 
@@ -36,6 +37,10 @@ namespace GoKidAPI.Entity.Account.Users
 
         public string? InstitutionId { get; set; }
         public Institution? Institution { get; set; }
+
+        // Level
+        public string? LevelId { get; set; }
+        public Level? Level { get; set; }
 
         // Navigation
         public ICollection<ChildTask>? Tasks { get; set; } 

@@ -165,7 +165,7 @@ namespace GoKidAPI.Services.Institution.Implmentation
             // 1. Get Institution Admin
             var institutionAdmin = await _context.InstitutionAdmins
                 .Include(a => a.Institution)
-                .FirstOrDefaultAsync(a => a.AppUserId == currentAdminUserId);
+                .FirstOrDefaultAsync(a => a.Id == currentAdminUserId);
 
             if (institutionAdmin == null)
             {
@@ -284,7 +284,7 @@ namespace GoKidAPI.Services.Institution.Implmentation
             // 8. Send email
             try
             {
-                var loginUrl = "https://go-kid.com/login";
+                var loginUrl = "https://gokiddashboard.vercel.app/login";
 
                 await _emailService.SendSupervisorCredentialsAsync(
                     request.Email,

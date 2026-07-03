@@ -7,6 +7,7 @@ using GoKidAPI.Entity.Account.UserTokens;
 using GoKidAPI.Entity.Classes;
 using GoKidAPI.Entity.Gifts;
 using GoKidAPI.Entity.Institiution;
+using GoKidAPI.Entity.Levels;
 using GoKidAPI.Entity.Tasks;
 using GoKidAPI.Enums.Tasks;
 
@@ -46,6 +47,7 @@ namespace GoKidAPI.Data
             modelBuilder.Entity<TaskTemplateBase>().HasQueryFilter(tt => !tt.IsDeleted);
             modelBuilder.Entity<ChildTask>().HasQueryFilter(ct => !ct.IsDeleted);
             modelBuilder.Entity<PointsTransaction>().HasQueryFilter(pt => !pt.IsDeleted);
+            modelBuilder.Entity<Level>().HasQueryFilter(l => !l.IsDeleted);
 
 
 
@@ -104,6 +106,20 @@ namespace GoKidAPI.Data
                 .HasForeignKey(t => t.SubCategoryId)
                 .OnDelete(DeleteBehavior.Restrict);
 
+            // Child → Level (optional FK, restrict delete)
+            modelBuilder.Entity<Child>()
+                .HasOne(c => c.Level)
+                .WithMany()
+                .HasForeignKey(c => c.LevelId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            // InstitutionAdmin shares PK with AspNetUsers (same as Parent / Child)
+            modelBuilder.Entity<InstitutionAdmin>()
+                .HasOne(a => a.AppUser)
+                .WithOne()
+                .HasForeignKey<InstitutionAdmin>(a => a.Id)
+                .OnDelete(DeleteBehavior.Cascade);
+
             // Institution - InstitutionAdmin 1-1
             modelBuilder.Entity<InstitutionAdmin>()
                 .HasOne(a => a.Institution)
@@ -150,6 +166,7 @@ namespace GoKidAPI.Data
         public DbSet<ChildGift> ChildGifts { get; set; }
 
         public DbSet<Notification> Notifications { get; set; }
+        public DbSet<Level> Levels { get; set; }
 
     }
 }

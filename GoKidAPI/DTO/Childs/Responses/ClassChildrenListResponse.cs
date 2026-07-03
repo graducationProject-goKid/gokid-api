@@ -1,4 +1,6 @@
-﻿namespace GoKidAPI.DTO.Childs.Responses
+﻿using GoKidAPI.DTO.Levels.Responses;
+
+namespace GoKidAPI.DTO.Childs.Responses
 {
     public class ClassChildrenListResponse
     {
@@ -12,5 +14,6 @@
         public int EarnedStars { get; set; }
         public int EarnedPoints { get; set; }
         public bool IsAdventureCompleted { get; set; }
+        public LevelInfo? Level { get; set; }
     }
 }

@@ -340,6 +340,9 @@ namespace GoKidAPI.Migrations
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("bit");
 
+                    b.Property<string>("LevelId")
+                        .HasColumnType("nvarchar(450)");
+
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
@@ -371,6 +374,8 @@ namespace GoKidAPI.Migrations
                     b.HasIndex("ClassId");
 
                     b.HasIndex("InstitutionId");
+
+                    b.HasIndex("LevelId");
 
                     b.HasIndex("ParentId");
 
@@ -970,14 +975,29 @@ namespace GoKidAPI.Migrations
                     b.Property<string>("Id")
                         .HasColumnType("nvarchar(450)");
 
+                    b.Property<string>("Address")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("City")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<string>("Code")
                         .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Country")
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
 
                     b.Property<string>("CreatedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Description")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Email")
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("InstitutionAdminId")
@@ -987,14 +1007,26 @@ namespace GoKidAPI.Migrations
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("bit");
 
+                    b.Property<string>("LogoPublicId")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("LogoUrl")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<string>("Name")
                         .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("PhoneNumber")
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("datetime2");
 
                     b.Property<string>("UpdatedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Website")
                         .HasColumnType("nvarchar(max)");
 
                     b.HasKey("Id");
@@ -1005,10 +1037,6 @@ namespace GoKidAPI.Migrations
             modelBuilder.Entity("GoKidAPI.Entity.Institiution.InstitutionAdmin", b =>
                 {
                     b.Property<string>("Id")
-                        .HasColumnType("nvarchar(450)");
-
-                    b.Property<string>("AppUserId")
-                        .IsRequired()
                         .HasColumnType("nvarchar(450)");
 
                     b.Property<DateTime>("CreatedAt")
@@ -1030,8 +1058,6 @@ namespace GoKidAPI.Migrations
                         .HasColumnType("nvarchar(max)");
 
                     b.HasKey("Id");
-
-                    b.HasIndex("AppUserId");
 
                     b.HasIndex("InstitutionId")
                         .IsUnique()
@@ -1085,6 +1111,47 @@ namespace GoKidAPI.Migrations
                     b.HasIndex("ClassId");
 
                     b.ToTable("WeeklyAdventures");
+                });
+
+            modelBuilder.Entity("GoKidAPI.Entity.Levels.Level", b =>
+                {
+                    b.Property<string>("Id")
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<string>("BadgePublicId")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("BadgeUrl")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<int>("MinPoints")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("Order")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("Levels");
                 });
 
             modelBuilder.Entity("GoKidAPI.Entity.Notification", b =>
@@ -1583,6 +1650,11 @@ namespace GoKidAPI.Migrations
                         .WithMany("EnrolledChildren")
                         .HasForeignKey("InstitutionId");
 
+                    b.HasOne("GoKidAPI.Entity.Levels.Level", "Level")
+                        .WithMany()
+                        .HasForeignKey("LevelId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("GoKidAPI.Entity.Account.Identity.AppUser", "Parent")
                         .WithMany()
                         .HasForeignKey("ParentId")
@@ -1593,6 +1665,8 @@ namespace GoKidAPI.Migrations
                     b.Navigation("Class");
 
                     b.Navigation("Institution");
+
+                    b.Navigation("Level");
 
                     b.Navigation("Parent");
                 });
@@ -1787,8 +1861,8 @@ namespace GoKidAPI.Migrations
             modelBuilder.Entity("GoKidAPI.Entity.Institiution.InstitutionAdmin", b =>
                 {
                     b.HasOne("GoKidAPI.Entity.Account.Identity.AppUser", "AppUser")
-                        .WithMany()
-                        .HasForeignKey("AppUserId")
+                        .WithOne()
+                        .HasForeignKey("GoKidAPI.Entity.Institiution.InstitutionAdmin", "Id")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 

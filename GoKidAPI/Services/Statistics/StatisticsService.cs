@@ -1,4 +1,5 @@
 ﻿using GoKidAPI.Data;
+using GoKidAPI.DTO.Levels.Responses;
 using GoKidAPI.DTO.Statistics;
 using GoKidAPI.Entity.Tasks;
 using GoKidAPI.Enums;
@@ -35,6 +36,7 @@ namespace GoKidAPI.Services.Statistics
                     userRole == "Parent" ? "No child linked to this parent" : "Child not found");
 
             var child = await _context.Childrens
+                .Include(c => c.Level)
                 .FirstOrDefaultAsync(c => c.Id == childId && !c.IsDeleted);
 
             if (child == null)
@@ -54,7 +56,13 @@ namespace GoKidAPI.Services.Statistics
                 AvatarUrl = child.AvatarUrl,
                 TotalPoints = child.TotalPoints,
                 ChildCode = child.RegistrationCode,
-                CurrentLevel = "1" // Placeholder for current level logic
+                Level = child.Level != null ? new LevelInfo
+                {
+                    Id = child.Level.Id,
+                    Name = child.Level.Name,
+                    Order = child.Level.Order,
+                    BadgeUrl = child.Level.BadgeUrl
+                } : null
             };
 
             stats.ThisWeek = await CalculatePeriodStatistics(baseQuery, thisWeekStart, now);

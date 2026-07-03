@@ -1,3 +1,4 @@
+using GoKidAPI.DTO.Levels.Responses;
 using GoKidAPI.Enums;
 
 namespace GoKidAPI.DTO.Account.Profile
@@ -15,5 +16,6 @@ namespace GoKidAPI.DTO.Account.Profile
         public string? RegistrationCode { get; set; }
         public string? ClassName { get; set; }
         public string? InstitutionName { get; set; }
+        public LevelInfo? Level { get; set; }
     }
 }
