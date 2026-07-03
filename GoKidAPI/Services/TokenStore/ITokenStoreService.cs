@@ -9,7 +9,6 @@ namespace GoKidAPI.Services.TokenStore
         Task SaveRefreshTokenAsync(string userId, string refreshToken);
         Task InvalidateOldTokensAsync(string userId);
         Task<bool> IsValidAsync(string refreshToken);
-        string GenerateChildJwt(Entity.Account.Users.Child child);
         //public Task<List<Claim>> UserClaims(AppUser user);
     }
 }

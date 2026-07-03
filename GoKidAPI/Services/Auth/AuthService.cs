@@ -108,8 +108,10 @@ namespace GoKidAPI.Services.Auth
                             var parent = await _context.Parents
                                 .Include(p => p.ActiveChild)
                                 .AsNoTracking()
-                                .FirstOrDefaultAsync(p => p.AppUserId == user.Id);
+                                .FirstOrDefaultAsync(p => p.Id == user.Id);
 
+                            if (parent == null)
+                                return _responseHandler.ServerError<AuthResponse>("Parent profile not found");
 
                             parentResp.AccessToken = accessToken;
                             parentResp.RefreshToken = refreshToken;
@@ -119,7 +121,7 @@ namespace GoKidAPI.Services.Auth
                             parentResp.UserType = request.LoginAs.ToString();
                             parentResp.ChildId = parent.ActiveChildId;
                             parentResp.ParentId = parent.Id;
-                            
+
                         }
                         else
                         {
@@ -142,25 +144,34 @@ namespace GoKidAPI.Services.Auth
                             return _responseHandler.BadRequest<AuthResponse>("Child code must be exactly 6 digits");
 
                         var child = await _context.Childrens
-                            .Include(c => c.Parent)
                             .FirstOrDefaultAsync(c => c.RegistrationCode == request.Identifier);
 
                         if (child == null)
                             return _responseHandler.Unauthorized<AuthResponse>("Invalid or already used child code");
 
+                        var childUser = await _userManager.FindByIdAsync(child.Id);
 
-                        var childToken = _tokenService.GenerateChildJwt(child);
+                        if (childUser == null)
+                            return _responseHandler.ServerError<AuthResponse>("Child account data is inconsistent");
+
+                        // Create the childUser Email 
+                        childUser.Email = string.IsNullOrEmpty(childUser.Email) ? $"{childUser.UserName}@gmail.com" : childUser.Email;
+
+                        var childAccessToken = await _tokenService.CreateAccessTokenAsync(childUser);
+                        var childRefreshToken = _tokenService.GenerateRefreshToken();
+                        await _tokenService.InvalidateOldTokensAsync(childUser.Id);
+                        await _tokenService.SaveRefreshTokenAsync(childUser.Id, childRefreshToken);
 
                         var childResp = new AuthResponse
                         {
-                            AccessToken = childToken,
-                            RefreshToken = _tokenService.GenerateRefreshToken(),
+                            AccessToken = childAccessToken,
+                            RefreshToken = childRefreshToken,
                             UserId = child.Id,
                             DisplayName = child.Name,
                             Email = "",
                             UserType = UserType.Child.ToString(),
                             ChildId = child.Id,
-                            ParentId = child.Parent.Id
+                            ParentId = child.ParentId
                         };
 
                         _logger.LogInformation("Child login successful: {Name} with code {Code}", child.Name, request.Identifier);
@@ -207,7 +218,7 @@ namespace GoKidAPI.Services.Auth
                 // Create Parent Profile
                 var parent = new Parent
                 {
-                    AppUserId = user.Id,
+                    Id = user.Id,
                     CreatedBy = user.Id
                 };
                 await _context.Parents.AddAsync(parent);
@@ -304,7 +315,7 @@ namespace GoKidAPI.Services.Auth
             {
                 var parent = await _context.Parents
                     .Include(p => p.ActiveChild)
-                    .FirstOrDefaultAsync(p => p.AppUserId == parentId);
+                    .FirstOrDefaultAsync(p => p.Id == parentId);
 
                 if (parent == null)
                     return _responseHandler.NotFound<CreateChildResponse>("Parent not found");
@@ -323,42 +334,73 @@ namespace GoKidAPI.Services.Auth
                 // Generate unique 6-digit code
                 var code = IWWHelper.Random(6);
 
-                var child = new Entity.Account.Users.Child
+                using var transaction = await _context.Database.BeginTransactionAsync();
+                try
                 {
-                    Name = request.Name,
-                    NickName = request.NickName,
-                    Age = request.Age,
-                    Gender = request.Gender,
-                    RelationshipToParent = request.RelationshipToParent,
-                    AvatarUrl = avatarUrl,
-                    ParentId = parent.AppUserId,
-                    RegistrationCode = code,
-                    CodeGeneratedAt = DateTime.UtcNow,
-                    CreatedAt = DateTime.UtcNow,
-                    CreatedBy = parent.AppUserId,
-                };
+                    // The child gets its own AspNetUsers row; Child.Id shares this PK.
+                    var childUser = new AppUser
+                    {
+                        Id = Guid.NewGuid().ToString(),
+                        UserName = $"child_{Guid.NewGuid():N}",
+                        Email = null,
+                        DisplayName = request.Name,
+                        AvatarUrl = avatarUrl,
+                        UserType = UserType.Child,
+                    };
 
-                // Set the new child as the active child for the parent
-                // Gharabawy : For MVP, we will allow only one child per parent
-                // , so we can directly set it as active without checking for existing active child
-                parent.ActiveChildId = child.Id;
+                    var identityResult = await _userManager.CreateAsync(childUser);
+                    if (!identityResult.Succeeded)
+                    {
+                        await transaction.RollbackAsync();
+                        var errors = string.Join(", ", identityResult.Errors.Select(e => e.Description));
+                        _logger.LogWarning("Failed to create child identity for parent {ParentId}: {Errors}", parentId, errors);
+                        return _responseHandler.ServerError<CreateChildResponse>("Failed to create child");
+                    }
+                    await _userManager.AddToRoleAsync(childUser, UserType.Child.ToString());
 
-                _context.Childrens.Add(child);
-                await _context.SaveChangesAsync();
+                    var child = new Entity.Account.Users.Child
+                    {
+                        Id = childUser.Id,
+                        Name = request.Name,
+                        NickName = request.NickName,
+                        Age = request.Age,
+                        Gender = request.Gender,
+                        RelationshipToParent = request.RelationshipToParent,
+                        AvatarUrl = avatarUrl,
+                        ParentId = parent.Id,
+                        RegistrationCode = code,
+                        CodeGeneratedAt = DateTime.UtcNow,
+                        CreatedAt = DateTime.UtcNow,
+                        CreatedBy = parent.Id,
+                    };
 
-                //var qrBase64 = IWWHelper.GenerateQrCodeBase64(code);
-                var qrBase64 = IWWHelper.GenerateQrCodeBase64(code); ; // Placeholder for QR code generation
+                    // Set the new child as the active child for the parent
+                    // Gharabawy : For MVP, we will allow only one child per parent
+                    // , so we can directly set it as active without checking for existing active child
+                    parent.ActiveChildId = child.Id;
 
-                var responseDto = new CreateChildResponse
+                    _context.Childrens.Add(child);
+                    await _context.SaveChangesAsync();
+                    await transaction.CommitAsync();
+
+                    var qrBase64 = IWWHelper.GenerateQrCodeBase64(code);
+
+                    var responseDto = new CreateChildResponse
+                    {
+                        ChildId = child.Id,
+                        ChildName = child.Name,
+                        RegistrationCode = code,
+                        QrCodeBase64 = qrBase64
+                    };
+
+                    _logger.LogInformation("Child created successfully: {Name} - Code: {Code}", child.Name, code);
+                    return _responseHandler.Created(responseDto, "Child added successfully");
+                }
+                catch
                 {
-                    ChildId = child.Id,
-                    ChildName = child.Name,
-                    RegistrationCode = code,
-                    QrCodeBase64 = qrBase64
-                };
-
-                _logger.LogInformation("Child created successfully: {Name} - Code: {Code}", child.Name, code);
-                return _responseHandler.Created(responseDto, "Child added successfully");
+                    await transaction.RollbackAsync();
+                    throw;
+                }
             }
             catch (Exception ex)
             {
@@ -738,14 +780,14 @@ namespace GoKidAPI.Services.Auth
                     .ThenInclude(c => c!.Class)
                 .Include(p => p.ActiveChild)
                     .ThenInclude(c => c!.Institution)
-                .FirstOrDefaultAsync(p => p.AppUserId == appUserId);
+                .FirstOrDefaultAsync(p => p.Id == appUserId);
 
             if (parent is null)
                 return _responseHandler.NotFound<ParentProfileResponse>("Parent profile not found.");
 
             var response = new ParentProfileResponse
             {
-                Id = parent.AppUserId,
+                Id = parent.Id,
                 DisplayName = parent.AppUser.DisplayName,
                 Email = parent.AppUser.Email,
                 AvatarUrl = parent.AppUser.AvatarUrl,

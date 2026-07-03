@@ -14,6 +14,7 @@ using GoKidAPI.Enums.Adventures;
 using GoKidAPI.Enums.Tasks;
 using GoKidAPI.Services.ImageUploading;
 using GoKidAPI.Services.Points;
+using GoKidAPI.Services.Notifications;
 using GoKidAPI.Shared;
 using Microsoft.EntityFrameworkCore;
 using System.Text;
@@ -26,18 +27,26 @@ namespace GoKidAPI.Services.Child
     {
         private readonly AppDbContext _context;
         private readonly ResponseHandler _response;
-        private readonly IFileUploader _fileUploader; 
+        private readonly IFileUploader _fileUploader;
         private readonly IHttpClientFactory _httpClientFactory;  // للـ AI API call
         private readonly ILogger<ChildTaskService> _logger;
         private readonly IPointsService _pointsService;
+        private readonly INotificationService _notificationService;
 
-        public ChildTaskService(AppDbContext context, ResponseHandler response, IFileUploader fileUploader, IHttpClientFactory httpClientFactory, ILogger<ChildTaskService> logger)
+        public ChildTaskService(
+            AppDbContext context,
+            ResponseHandler response,
+            IFileUploader fileUploader,
+            IHttpClientFactory httpClientFactory,
+            ILogger<ChildTaskService> logger,
+            INotificationService notificationService)
         {
             _context = context;
             _response = response;
             _fileUploader = fileUploader;
             _httpClientFactory = httpClientFactory;
             _logger = logger;
+            _notificationService = notificationService;
         }
 
         public async Task<Response<List<TaskTemplateListItemResponse>>> GetDailyGeneralTasksAsync(string childId, DateTime date)
@@ -213,16 +222,17 @@ namespace GoKidAPI.Services.Child
                     // هنا ممكن نضيف حقل EvidenceUrl في ChildTask لو عايزين نخزن رابط الصورة
                     childTask.AnswerMediaUrl = evidenceUrl.Url;
 
-                    // based on review authority (parent or supervisour reviwe)
+                    // based on review authority (parent or supervisor review)
                     if (childTask.Source == TaskSource.Parent)
                     {
-                        // review by parent
-                        // 3. أضف Notification للـ Parent (لو موجود ParentId)
-                        if (childTask.Child.ParentId != null)
-                        {
-                            // أضف Notification entity هنا (هنفترض إنك عندك NotificationService)
-                            // await _notificationService.SendReviewRequestedAsync(childTask.Child.ParentId, childTask.Id);
-                        }
+                        if (!string.IsNullOrEmpty(childTask.Child.ParentId))
+                            _ = _notificationService.SendAsync(
+                                childTask.Child.ParentId,
+                                NotificationType.ReviewRequested,
+                                "New Submission",
+                                $"{childTask.Child.Name} submitted evidence for \"{childTask.Template.TitleEn}\".",
+                                childTask.Id);
+
                         response.Status = TaskStatus.ReviewRequested;
                         response.Message = "Evidence submitted. Waiting for parent review.";
                         break;

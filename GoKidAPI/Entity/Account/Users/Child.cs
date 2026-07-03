@@ -10,7 +10,9 @@ namespace GoKidAPI.Entity.Account.Users
 {
     public class Child : AuditableEntity
     {
-        public string Id { get; set; } = Guid.NewGuid().ToString();
+        public string Id { get; set; } = null!;       // shared PK == AppUser.Id (set explicitly at creation)
+        public AppUser AppUser { get; set; } = null!;  // the child's own AspNetUsers row
+
         public string Name { get; set; } = null!;
         public string? NickName { get; set; }
         public int Age { get; set; }

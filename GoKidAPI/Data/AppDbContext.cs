@@ -59,16 +59,31 @@ namespace GoKidAPI.Data
             //    .HasKey(cs => new { cs.WeeklyAdventureId, cs.ChildId }); 
             #endregion
 
+            // Child / Parent share their PK with AspNetUsers.Id (1-to-1 Identity extension tables)
             modelBuilder.Entity<Child>()
-                .HasOne(c => c.Parent)           // Child -> Parent
+                .HasOne(c => c.AppUser)
+                .WithOne()
+                .HasForeignKey<Child>(c => c.Id)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<Parent>()
+                .HasOne(p => p.AppUser)
+                .WithOne()
+                .HasForeignKey<Parent>(p => p.Id)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<Child>()
+                .HasOne(c => c.Parent)           // Child -> Parent's AppUser
                 .WithMany()                     // Parent -> Childs
-                .HasForeignKey(c => c.ParentId) 
+                .HasForeignKey(c => c.ParentId)
                 .OnDelete(DeleteBehavior.Restrict);
 
             // Unique Email + PhoneNumber (AppUser already has it from Identity)
+            // Filtered so multiple Children (Email = null) don't collide
             modelBuilder.Entity<AppUser>()
                 .HasIndex(u => u.Email)
-                .IsUnique();
+                .IsUnique()
+                .HasFilter("[Email] IS NOT NULL");
 
             // Child Registration Code Unique
             modelBuilder.Entity<Child>()

@@ -9,8 +9,8 @@ namespace GoKidAPI.Entity.Tasks
         public string NameAr { get; set; } = null!;
         public string NameEn { get; set; } = null!;     
         public string? ColorHex { get; set; } = "#3498db";
-        public string IconUrl { get; set; } = null!;
-        public string IconPublicId { get; set; } = null!;
+        public string? IconUrl { get; set; } = null!;
+        public string? IconPublicId { get; set; } = null!;
 
         // Navigation
         public ICollection<TaskSubCategory>? SubCategories { get; set; }

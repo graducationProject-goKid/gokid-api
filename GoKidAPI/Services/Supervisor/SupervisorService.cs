@@ -7,6 +7,7 @@ using GoKidAPI.Entity;
 using GoKidAPI.Entity.Institiution;
 using GoKidAPI.Enums;
 using GoKidAPI.Enums.Adventures;
+using GoKidAPI.Services.Notifications;
 using GoKidAPI.Shared;
 
 using Microsoft.EntityFrameworkCore;
@@ -18,15 +19,18 @@ namespace GoKidAPI.Services.Supervisor
         private readonly AppDbContext _context;
         private readonly ResponseHandler _response;
         private readonly ILogger<SupervisorService> _logger;
+        private readonly INotificationService _notificationService;
 
         public SupervisorService(
             AppDbContext context,
             ResponseHandler response,
-            ILogger<SupervisorService> logger)
+            ILogger<SupervisorService> logger,
+            INotificationService notificationService)
         {
             _context = context;
             _response = response;
             _logger = logger;
+            _notificationService = notificationService;
         }
 
         public async Task<Response<List<SupervisorAdventureListResponse>>> GetMyAdventuresAsync(string supervisorUserId)
@@ -142,6 +146,8 @@ namespace GoKidAPI.Services.Supervisor
                 .Include(cat => cat.AdventureTask)
                     .ThenInclude(at => at.TaskTemplate)
                 .Include(cat => cat.Progress)
+                .Include(cat => cat.WeeklyAdventure)
+                    .ThenInclude(wa => wa.Adventure)
                 .FirstOrDefaultAsync(cat => cat.Id == childAdventureTaskId && !cat.IsDeleted);
 
             if (childTask == null)
@@ -215,6 +221,27 @@ namespace GoKidAPI.Services.Supervisor
                 request.IsApproved ? "approved" : "rejected",
                 childAdventureTaskId,
                 childTask.ChildId);
+
+            if (request.IsApproved)
+            {
+                _ = _notificationService.SendAsync(
+                    childTask.ChildId,
+                    NotificationType.TaskApproved,
+                    "Adventure Task Approved!",
+                    $"Day {childTask.AdventureTask.DayNumber} of \"{childTask.WeeklyAdventure.Adventure.TitleEn}\" approved. " +
+                    $"You earned {childTask.AdventureTask.TaskTemplate.BasePoints} points!",
+                    childTask.WeeklyAdventureId);
+            }
+            else
+            {
+                _ = _notificationService.SendAsync(
+                    childTask.ChildId,
+                    NotificationType.TaskRejected,
+                    "Try Again!",
+                    $"Your supervisor sent back day {childTask.AdventureTask.DayNumber} of " +
+                    $"\"{childTask.WeeklyAdventure.Adventure.TitleEn}\". Re-upload your evidence.",
+                    childTask.WeeklyAdventureId);
+            }
 
             var result = new ChildAdventureTaskReviewResponse
             {
@@ -473,6 +500,13 @@ namespace GoKidAPI.Services.Supervisor
                     SourceType = PointsSourceType.ChildTask,
                     SourceEntityId = childTask.WeeklyAdventureId
                 });
+
+                _ = _notificationService.SendAsync(
+                    childTask.ChildId,
+                    NotificationType.WeekBonus,
+                    "Adventure Complete!",
+                    $"You finished \"{weeklyAdventure.Adventure.TitleEn}\"! Bonus: +{bonusPoints} points. Amazing!",
+                    childTask.WeeklyAdventureId);
             }
         }
     }

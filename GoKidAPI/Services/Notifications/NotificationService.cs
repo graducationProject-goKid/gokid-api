@@ -3,6 +3,7 @@ using GoKidAPI.DTO.Notifications;
 using GoKidAPI.Entity;
 using GoKidAPI.Enums;
 using GoKidAPI.Hubs;
+using GoKidAPI.Services.Firebase;
 using GoKidAPI.Shared;
 
 using Microsoft.AspNetCore.SignalR;
@@ -15,15 +16,21 @@ namespace GoKidAPI.Services.Notifications
         private readonly AppDbContext _context;
         private readonly IHubContext<NotificationHub> _hub;
         private readonly ResponseHandler _response;
+        private readonly IFirebaseNotificationService _firebase;
+        private readonly ILogger<NotificationService> _logger;
 
         public NotificationService(
             AppDbContext context,
             IHubContext<NotificationHub> hub,
-            ResponseHandler response)
+            ResponseHandler response,
+            IFirebaseNotificationService firebase,
+            ILogger<NotificationService> logger)
         {
             _context = context;
             _hub = hub;
             _response = response;
+            _firebase = firebase;
+            _logger = logger;
         }
 
         public async Task SendAsync(
@@ -33,6 +40,7 @@ namespace GoKidAPI.Services.Notifications
             string body,
             string? relatedEntityId = null)
         {
+            // 1. Persist — always, for every role
             var notification = new Notification
             {
                 UserId = userId,
@@ -45,25 +53,63 @@ namespace GoKidAPI.Services.Notifications
             _context.Notifications.Add(notification);
             await _context.SaveChangesAsync();
 
-            var payload = new NotificationResponse
-            {
-                Id = notification.Id,
-                Type = notification.Type,
-                Title = notification.Title,
-                Body = notification.Body,
-                RelatedEntityId = notification.RelatedEntityId,
-                IsRead = notification.IsRead,
-                CreatedAt = notification.CreatedAt,
-            };
+            // 2. Route delivery based on the recipient's UserType:
+            //    Mobile users (Parent / Child)      → Firebase push only
+            //    Web users   (Admin / Supervisor)   → SignalR only
+            var userType = await _context.AppUsers
+                .Where(u => u.Id == userId)
+                .Select(u => u.UserType)
+                .FirstOrDefaultAsync();
 
-            await _hub.Clients.Group(userId).SendAsync("ReceiveNotification", payload);
+            if (userType == UserType.Parent || userType == UserType.Child)
+            {
+                // Mobile — Firebase push only
+                try
+                {
+                    var data = new Dictionary<string, string>
+                    {
+                        ["type"]           = type.ToString(),
+                        ["notificationId"] = notification.Id,
+                    };
+                    await _firebase.SendToUserAsync(userId, title, body, data);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Firebase push failed silently for user {UserId}", userId);
+                }
+            }
+            else
+            {
+                // Web Dashboard — SignalR only
+                var payload = new NotificationResponse
+                {
+                    Id = notification.Id,
+                    Type = notification.Type,
+                    Title = notification.Title,
+                    Body = notification.Body,
+                    RelatedEntityId = notification.RelatedEntityId,
+                    IsRead = notification.IsRead,
+                    CreatedAt = notification.CreatedAt,
+                };
+
+                await _hub.Clients.Group(userId).SendAsync("ReceiveNotification", payload);
+            }
         }
 
-        public async Task<Response<IEnumerable<NotificationResponse>>> GetNotificationsAsync(string userId)
+        public async Task<Response<NotificationListResponse>> GetNotificationsAsync(
+    string userId,
+    int page,
+    int pageSize)
         {
-            var notifications = await _context.Notifications
+            var query = _context.Notifications
                 .Where(n => n.UserId == userId)
-                .OrderByDescending(n => n.CreatedAt)
+                .OrderByDescending(n => n.CreatedAt);
+
+            var totalCount = await query.CountAsync();
+
+            var notifications = await query
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
                 .Select(n => new NotificationResponse
                 {
                     Id = n.Id,
@@ -76,7 +122,16 @@ namespace GoKidAPI.Services.Notifications
                 })
                 .ToListAsync();
 
-            return _response.Success<IEnumerable<NotificationResponse>>(notifications, "Notifications retrieved successfully.");
+            var response = new NotificationListResponse
+            {
+                Notifications = notifications,
+                Page = page,
+                PageSize = pageSize,
+                TotalCount = totalCount,
+                HasNextPage = page * pageSize < totalCount
+            };
+
+            return _response.Success(response, "Notifications retrieved successfully.");
         }
 
         public async Task<Response<bool>> MarkAsReadAsync(string notificationId, string userId)

@@ -7,6 +7,7 @@ using GoKidAPI.Entity.Tasks;
 using GoKidAPI.Enums;
 using GoKidAPI.Enums.Shared;
 using GoKidAPI.Enums.Tasks;
+using GoKidAPI.Services.Notifications;
 using GoKidAPI.Shared;
 
 using Microsoft.EntityFrameworkCore;
@@ -22,12 +23,18 @@ namespace GoKidAPI.Services.ParentTasks
         private readonly AppDbContext _context;
         private readonly ResponseHandler _response;
         private readonly ILogger<ParentTaskService> _logger;
+        private readonly INotificationService _notificationService;
 
-        public ParentTaskService(AppDbContext context, ResponseHandler response, ILogger<ParentTaskService> logger)
+        public ParentTaskService(
+            AppDbContext context,
+            ResponseHandler response,
+            ILogger<ParentTaskService> logger,
+            INotificationService notificationService)
         {
             _context = context;
             _response = response;
             _logger = logger;
+            _notificationService = notificationService;
         }
 
         public async Task<Response<AssignTaskResponse>> AssignTaskToChildAsync(string parentId, AssignTaskRequest request)
@@ -37,7 +44,7 @@ namespace GoKidAPI.Services.ParentTasks
                 // جيب الأب وتأكد إن عنده طفل نشط (MVP: واحد بس)
                 var parent = await _context.Parents
                     .Include(p => p.ActiveChild)
-                    .FirstOrDefaultAsync(p => p.AppUserId == parentId);
+                    .FirstOrDefaultAsync(p => p.Id == parentId);
 
                 if (parent == null || parent.ActiveChild ==null )
                     return _response.BadRequest<AssignTaskResponse>("No child linked to your account");
@@ -89,7 +96,12 @@ namespace GoKidAPI.Services.ParentTasks
 
                 _logger.LogInformation("Parent {ParentId} assigned task {TaskId} to child {ChildId}", parentId, template.Id, parent.ActiveChildId);
 
-                // هنا ممكن نبعت Notification للطفل (Push أو InApp)
+                await _notificationService.SendAsync(
+                    parent.ActiveChildId!,
+                    NotificationType.TaskAssigned,
+                    "New Task!",
+                    $"Your parent assigned you \"{template.TitleEn}\".",
+                    childTask.Id);
 
                 return _response.Created(resp, "Task assigned successfully to your child");
             }
@@ -144,6 +156,14 @@ namespace GoKidAPI.Services.ParentTasks
                 };
 
                 await _context.SaveChangesAsync();
+
+                _ = _notificationService.SendAsync(
+                    task.ChildId,
+                    NotificationType.TaskApproved,
+                    "Task Approved!",
+                    $"Your parent approved \"{task.Template.TitleEn}\". You earned {task.Template.BasePoints} points!",
+                    task.Id);
+
                 return _response.Success(resp, "Task approved successfully");
             }
             else
@@ -158,6 +178,17 @@ namespace GoKidAPI.Services.ParentTasks
                 task.UpdatedBy = parentId;
 
                 await _context.SaveChangesAsync();
+
+                var reason = request.RejectionReason.Length > 80
+                    ? request.RejectionReason[..80] + "…"
+                    : request.RejectionReason;
+
+                _ = _notificationService.SendAsync(
+                    task.ChildId,
+                    NotificationType.TaskRejected,
+                    "Task Needs Changes",
+                    $"Your parent reviewed \"{task.Template.TitleEn}\": {reason}",
+                    task.Id);
 
                 var resp = new ReviewDecisionResponse
                 {

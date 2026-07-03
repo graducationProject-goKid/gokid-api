@@ -1,6 +1,5 @@
 ﻿using System.ComponentModel.DataAnnotations;
 
-using GoKidAPI.Migrations;
 
 namespace GoKidAPI.DTO.Adventures.Requests
 {

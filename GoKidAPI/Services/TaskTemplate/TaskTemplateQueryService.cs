@@ -1,6 +1,7 @@
 ﻿using GoKidAPI.Data;
 using GoKidAPI.DTO.Tasks.Responses;
 using GoKidAPI.Entity.Tasks;
+using GoKidAPI.Enums;
 using GoKidAPI.Enums.Shared;
 using GoKidAPI.Enums.Tasks;
 using GoKidAPI.Services.TaskTemplate.Interfaces;
@@ -23,7 +24,9 @@ namespace GoKidAPI.Services.TaskTemplate
             _logger = logger;
         }
 
-        public async Task<Response<PaginatedList<TaskTemplateListItemResponse>>> GetAllAsync(TaskRequestFilters filters)
+        public async Task<Response<PaginatedList<TaskTemplateListItemResponse>>> GetAllAsync(
+            TaskRequestFilters filters,
+            string? role)
         {
             try
             {
@@ -35,6 +38,11 @@ namespace GoKidAPI.Services.TaskTemplate
                     .ThenInclude(sc => sc.Category)
                     .AsNoTracking()
                     .AsQueryable();
+
+                if (role == UserType.Parent.ToString())
+                {
+                    query = query.Where(t => t.TemplateType != TaskTemplateType.InstantReward);
+                }
 
                 // ✅ Task-specific filters
                 if (filters.TemplateType.HasValue)

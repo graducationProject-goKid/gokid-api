@@ -12,8 +12,8 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace GoKidAPI.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20260308011222_adding-lastvoice-attempt-time")]
-    partial class addinglastvoiceattempttime
+    [Migration("20260630045142_inital")]
+    partial class inital
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -221,6 +221,9 @@ namespace GoKidAPI.Migrations
                     b.Property<bool>("EmailConfirmed")
                         .HasColumnType("bit");
 
+                    b.Property<string>("FcmToken")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<bool>("LockoutEnabled")
                         .HasColumnType("bit");
 
@@ -331,6 +334,9 @@ namespace GoKidAPI.Migrations
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<int>("HighestPoints")
+                        .HasColumnType("int");
+
                     b.Property<string>("InstitutionId")
                         .HasColumnType("nvarchar(450)");
 
@@ -386,10 +392,6 @@ namespace GoKidAPI.Migrations
                     b.Property<string>("ActiveChildId")
                         .HasColumnType("nvarchar(450)");
 
-                    b.Property<string>("AppUserId")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(450)");
-
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
 
@@ -410,8 +412,6 @@ namespace GoKidAPI.Migrations
                     b.HasIndex("ActiveChildId")
                         .IsUnique()
                         .HasFilter("[ActiveChildId] IS NOT NULL");
-
-                    b.HasIndex("AppUserId");
 
                     b.ToTable("Parents");
                 });
@@ -518,10 +518,182 @@ namespace GoKidAPI.Migrations
                     b.ToTable("ClassSupervisors");
                 });
 
+            modelBuilder.Entity("GoKidAPI.Entity.Gifts.ChildGift", b =>
+                {
+                    b.Property<string>("Id")
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<string>("ChildId")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("GiftId")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<int>("PointsSpent")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("PurchasedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ChildId");
+
+                    b.HasIndex("GiftId");
+
+                    b.ToTable("ChildGifts");
+                });
+
+            modelBuilder.Entity("GoKidAPI.Entity.Gifts.Gift", b =>
+                {
+                    b.Property<string>("Id")
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("DescriptionAr")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("DescriptionEn")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("ImagePublicId")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("ImageUrl")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("NameAr")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("NameEn")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("PointsCost")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Type")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("Gifts");
+                });
+
+            modelBuilder.Entity("GoKidAPI.Entity.Gifts.Reward", b =>
+                {
+                    b.Property<string>("Id")
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<string>("ChildId")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("DescriptionAr")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("DescriptionEn")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("GivenAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("ImagePublicId")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("ImageUrl")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("NameAr")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("NameEn")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("ParentId")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("TargetPoints")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ChildId");
+
+                    b.HasIndex("ParentId");
+
+                    b.ToTable("Rewards");
+                });
+
             modelBuilder.Entity("GoKidAPI.Entity.Institiution.Adventure", b =>
                 {
                     b.Property<string>("Id")
                         .HasColumnType("nvarchar(450)");
+
+                    b.Property<string>("BannerImagePublicId")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("BannerImageUrl")
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<int>("BonusPoints")
                         .HasColumnType("int");
@@ -532,13 +704,68 @@ namespace GoKidAPI.Migrations
                     b.Property<string>("CreatedBy")
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<string>("Description")
+                    b.Property<string>("DescriptionAr")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("DescriptionEn")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("DescriptionVoicePublicId")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("DescriptionVoiceUrl")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("GoalAr")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("GoalEn")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("InstitutionId")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<string>("IntroStory")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("IntroTitle")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("IntroVoicePublicId")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("IntroVoiceUrl")
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("bit");
 
-                    b.Property<string>("Title")
+                    b.Property<string>("OutroStory")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("OutroTitle")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("OutroVoicePublicId")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("OutroVoiceUrl")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("TitleAr")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("TitleEn")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
@@ -553,15 +780,18 @@ namespace GoKidAPI.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("Adventure");
+                    b.HasIndex("InstitutionId");
+
+                    b.ToTable("Adventures");
                 });
 
             modelBuilder.Entity("GoKidAPI.Entity.Institiution.AdventureTask", b =>
                 {
-                    b.Property<string>("AdventureId")
+                    b.Property<string>("Id")
                         .HasColumnType("nvarchar(450)");
 
-                    b.Property<string>("TaskTemplateId")
+                    b.Property<string>("AdventureId")
+                        .IsRequired()
                         .HasColumnType("nvarchar(450)");
 
                     b.Property<DateTime>("CreatedAt")
@@ -576,26 +806,54 @@ namespace GoKidAPI.Migrations
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("bit");
 
+                    b.Property<int>("Stars")
+                        .HasColumnType("int");
+
+                    b.Property<string>("StoryText")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("StoryTitle")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("StoryVoicePublicId")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("StoryVoiceUrl")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("TaskTemplateId")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)");
+
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("datetime2");
 
                     b.Property<string>("UpdatedBy")
                         .HasColumnType("nvarchar(max)");
 
-                    b.HasKey("AdventureId", "TaskTemplateId");
+                    b.HasKey("Id");
+
+                    b.HasIndex("AdventureId");
 
                     b.HasIndex("TaskTemplateId");
 
-                    b.ToTable("AdventureTask");
+                    b.ToTable("AdventureTasks");
                 });
 
             modelBuilder.Entity("GoKidAPI.Entity.Institiution.ChildAdventureProgress", b =>
                 {
-                    b.Property<string>("WeeklyAdventureId")
+                    b.Property<string>("Id")
                         .HasColumnType("nvarchar(450)");
 
                     b.Property<string>("ChildId")
+                        .IsRequired()
                         .HasColumnType("nvarchar(450)");
+
+                    b.Property<DateTime?>("CompletedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("CompletedDaysCount")
+                        .HasColumnType("int");
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
@@ -603,9 +861,14 @@ namespace GoKidAPI.Migrations
                     b.Property<string>("CreatedBy")
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<string>("DayCompletionJson")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                    b.Property<int>("EarnedPoints")
+                        .HasColumnType("int");
+
+                    b.Property<int>("EarnedStars")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("IsCompleted")
+                        .HasColumnType("bit");
 
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("bit");
@@ -619,11 +882,90 @@ namespace GoKidAPI.Migrations
                     b.Property<bool>("WeekBonusAwarded")
                         .HasColumnType("bit");
 
-                    b.HasKey("WeeklyAdventureId", "ChildId");
+                    b.Property<string>("WeeklyAdventureId")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)");
+
+                    b.HasKey("Id");
 
                     b.HasIndex("ChildId");
 
-                    b.ToTable("ChildAdventureProgress");
+                    b.HasIndex("WeeklyAdventureId");
+
+                    b.ToTable("ChildAdventureProgresses");
+                });
+
+            modelBuilder.Entity("GoKidAPI.Entity.Institiution.ChildAdventureTask", b =>
+                {
+                    b.Property<string>("Id")
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<string>("AdventureTaskId")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<string>("ChildAdventureProgressId")
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<string>("ChildId")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<DateTime?>("CompletedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("EarnedStars")
+                        .HasColumnType("int");
+
+                    b.Property<string>("EvidenceUrl")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<bool?>("IsApproved")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime?>("ReviewedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("ReviewedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("SubmittedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("WeeklyAdventureId")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AdventureTaskId");
+
+                    b.HasIndex("ChildAdventureProgressId");
+
+                    b.HasIndex("ChildId");
+
+                    b.HasIndex("WeeklyAdventureId");
+
+                    b.ToTable("ChildAdventureTasks");
                 });
 
             modelBuilder.Entity("GoKidAPI.Entity.Institiution.Institution", b =>
@@ -720,11 +1062,18 @@ namespace GoKidAPI.Migrations
                     b.Property<string>("CreatedBy")
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<DateTime>("EndDate")
+                        .HasColumnType("datetime2");
+
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("bit");
 
                     b.Property<DateTime>("StartDate")
                         .HasColumnType("datetime2");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("datetime2");
@@ -738,7 +1087,44 @@ namespace GoKidAPI.Migrations
 
                     b.HasIndex("ClassId");
 
-                    b.ToTable("WeeklyAdventure");
+                    b.ToTable("WeeklyAdventures");
+                });
+
+            modelBuilder.Entity("GoKidAPI.Entity.Notification", b =>
+                {
+                    b.Property<string>("Id")
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<string>("Body")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<bool>("IsRead")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("RelatedEntityId")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Type")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("UserId")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(450)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("Notifications");
                 });
 
             modelBuilder.Entity("GoKidAPI.Entity.PointsTransaction", b =>
@@ -1192,6 +1578,12 @@ namespace GoKidAPI.Migrations
                         .WithMany("Children")
                         .HasForeignKey("ClassId");
 
+                    b.HasOne("GoKidAPI.Entity.Account.Identity.AppUser", "AppUser")
+                        .WithOne()
+                        .HasForeignKey("GoKidAPI.Entity.Account.Users.Child", "Id")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
                     b.HasOne("GoKidAPI.Entity.Institiution.Institution", "Institution")
                         .WithMany("EnrolledChildren")
                         .HasForeignKey("InstitutionId");
@@ -1200,6 +1592,8 @@ namespace GoKidAPI.Migrations
                         .WithMany()
                         .HasForeignKey("ParentId")
                         .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("AppUser");
 
                     b.Navigation("Class");
 
@@ -1216,8 +1610,8 @@ namespace GoKidAPI.Migrations
                         .OnDelete(DeleteBehavior.Restrict);
 
                     b.HasOne("GoKidAPI.Entity.Account.Identity.AppUser", "AppUser")
-                        .WithMany()
-                        .HasForeignKey("AppUserId")
+                        .WithOne()
+                        .HasForeignKey("GoKidAPI.Entity.Account.Users.Parent", "Id")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
@@ -1275,6 +1669,55 @@ namespace GoKidAPI.Migrations
                     b.Navigation("Supervisor");
                 });
 
+            modelBuilder.Entity("GoKidAPI.Entity.Gifts.ChildGift", b =>
+                {
+                    b.HasOne("GoKidAPI.Entity.Account.Users.Child", "Child")
+                        .WithMany("Gifts")
+                        .HasForeignKey("ChildId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("GoKidAPI.Entity.Gifts.Gift", "Gift")
+                        .WithMany("ChildGifts")
+                        .HasForeignKey("GiftId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Child");
+
+                    b.Navigation("Gift");
+                });
+
+            modelBuilder.Entity("GoKidAPI.Entity.Gifts.Reward", b =>
+                {
+                    b.HasOne("GoKidAPI.Entity.Account.Users.Child", "Child")
+                        .WithMany("Rewards")
+                        .HasForeignKey("ChildId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("GoKidAPI.Entity.Account.Identity.AppUser", "Parent")
+                        .WithMany()
+                        .HasForeignKey("ParentId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Child");
+
+                    b.Navigation("Parent");
+                });
+
+            modelBuilder.Entity("GoKidAPI.Entity.Institiution.Adventure", b =>
+                {
+                    b.HasOne("GoKidAPI.Entity.Institiution.Institution", "Institution")
+                        .WithMany()
+                        .HasForeignKey("InstitutionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Institution");
+                });
+
             modelBuilder.Entity("GoKidAPI.Entity.Institiution.AdventureTask", b =>
                 {
                     b.HasOne("GoKidAPI.Entity.Institiution.Adventure", "Adventure")
@@ -1283,7 +1726,7 @@ namespace GoKidAPI.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("TaskTemplateBase", "Task")
+                    b.HasOne("TaskTemplateBase", "TaskTemplate")
                         .WithMany("AdventureTasks")
                         .HasForeignKey("TaskTemplateId")
                         .OnDelete(DeleteBehavior.Cascade)
@@ -1291,7 +1734,7 @@ namespace GoKidAPI.Migrations
 
                     b.Navigation("Adventure");
 
-                    b.Navigation("Task");
+                    b.Navigation("TaskTemplate");
                 });
 
             modelBuilder.Entity("GoKidAPI.Entity.Institiution.ChildAdventureProgress", b =>
@@ -1309,6 +1752,39 @@ namespace GoKidAPI.Migrations
                         .IsRequired();
 
                     b.Navigation("Child");
+
+                    b.Navigation("WeeklyAdventure");
+                });
+
+            modelBuilder.Entity("GoKidAPI.Entity.Institiution.ChildAdventureTask", b =>
+                {
+                    b.HasOne("GoKidAPI.Entity.Institiution.AdventureTask", "AdventureTask")
+                        .WithMany("ChildTasks")
+                        .HasForeignKey("AdventureTaskId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("GoKidAPI.Entity.Institiution.ChildAdventureProgress", "Progress")
+                        .WithMany("Tasks")
+                        .HasForeignKey("ChildAdventureProgressId");
+
+                    b.HasOne("GoKidAPI.Entity.Account.Users.Child", "Child")
+                        .WithMany("AdventureTasks")
+                        .HasForeignKey("ChildId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("GoKidAPI.Entity.Institiution.WeeklyAdventure", "WeeklyAdventure")
+                        .WithMany("ChildTasks")
+                        .HasForeignKey("WeeklyAdventureId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("AdventureTask");
+
+                    b.Navigation("Child");
+
+                    b.Navigation("Progress");
 
                     b.Navigation("WeeklyAdventure");
                 });
@@ -1348,6 +1824,17 @@ namespace GoKidAPI.Migrations
                     b.Navigation("Adventure");
 
                     b.Navigation("Class");
+                });
+
+            modelBuilder.Entity("GoKidAPI.Entity.Notification", b =>
+                {
+                    b.HasOne("GoKidAPI.Entity.Account.Identity.AppUser", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("GoKidAPI.Entity.PointsTransaction", b =>
@@ -1460,7 +1947,13 @@ namespace GoKidAPI.Migrations
                 {
                     b.Navigation("AdventureProgresses");
 
+                    b.Navigation("AdventureTasks");
+
+                    b.Navigation("Gifts");
+
                     b.Navigation("PointsTransactions");
+
+                    b.Navigation("Rewards");
 
                     b.Navigation("Tasks");
                 });
@@ -1479,11 +1972,26 @@ namespace GoKidAPI.Migrations
                     b.Navigation("WeeklyAdventures");
                 });
 
+            modelBuilder.Entity("GoKidAPI.Entity.Gifts.Gift", b =>
+                {
+                    b.Navigation("ChildGifts");
+                });
+
             modelBuilder.Entity("GoKidAPI.Entity.Institiution.Adventure", b =>
                 {
                     b.Navigation("Tasks");
 
                     b.Navigation("WeeklyAssignments");
+                });
+
+            modelBuilder.Entity("GoKidAPI.Entity.Institiution.AdventureTask", b =>
+                {
+                    b.Navigation("ChildTasks");
+                });
+
+            modelBuilder.Entity("GoKidAPI.Entity.Institiution.ChildAdventureProgress", b =>
+                {
+                    b.Navigation("Tasks");
                 });
 
             modelBuilder.Entity("GoKidAPI.Entity.Institiution.Institution", b =>
@@ -1500,6 +2008,8 @@ namespace GoKidAPI.Migrations
 
             modelBuilder.Entity("GoKidAPI.Entity.Institiution.WeeklyAdventure", b =>
                 {
+                    b.Navigation("ChildTasks");
+
                     b.Navigation("Progresses");
                 });
 

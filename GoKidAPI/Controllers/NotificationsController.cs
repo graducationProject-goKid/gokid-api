@@ -22,9 +22,15 @@ namespace GoKidAPI.Controllers
         /// Returns all notifications for the authenticated user, newest first.
         /// </summary>
         [HttpGet]
-        public async Task<IActionResult> GetAll()
+        public async Task<IActionResult> GetAll(
+    [FromQuery] int page = 1,
+    [FromQuery] int pageSize = 20)
         {
-            var result = await _notificationService.GetNotificationsAsync(CurrentUserId);
+            var result = await _notificationService.GetNotificationsAsync(
+                CurrentUserId,
+                page,
+                pageSize);
+
             return StatusCode((int)result.StatusCode, result);
         }
 

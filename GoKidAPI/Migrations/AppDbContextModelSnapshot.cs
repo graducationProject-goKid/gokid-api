@@ -389,10 +389,6 @@ namespace GoKidAPI.Migrations
                     b.Property<string>("ActiveChildId")
                         .HasColumnType("nvarchar(450)");
 
-                    b.Property<string>("AppUserId")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(450)");
-
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
 
@@ -413,8 +409,6 @@ namespace GoKidAPI.Migrations
                     b.HasIndex("ActiveChildId")
                         .IsUnique()
                         .HasFilter("[ActiveChildId] IS NOT NULL");
-
-                    b.HasIndex("AppUserId");
 
                     b.ToTable("Parents");
                 });
@@ -1282,11 +1276,9 @@ namespace GoKidAPI.Migrations
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("IconPublicId")
-                        .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("IconUrl")
-                        .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<bool>("IsDeleted")
@@ -1581,6 +1573,12 @@ namespace GoKidAPI.Migrations
                         .WithMany("Children")
                         .HasForeignKey("ClassId");
 
+                    b.HasOne("GoKidAPI.Entity.Account.Identity.AppUser", "AppUser")
+                        .WithOne()
+                        .HasForeignKey("GoKidAPI.Entity.Account.Users.Child", "Id")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
                     b.HasOne("GoKidAPI.Entity.Institiution.Institution", "Institution")
                         .WithMany("EnrolledChildren")
                         .HasForeignKey("InstitutionId");
@@ -1589,6 +1587,8 @@ namespace GoKidAPI.Migrations
                         .WithMany()
                         .HasForeignKey("ParentId")
                         .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("AppUser");
 
                     b.Navigation("Class");
 
@@ -1605,8 +1605,8 @@ namespace GoKidAPI.Migrations
                         .OnDelete(DeleteBehavior.Restrict);
 
                     b.HasOne("GoKidAPI.Entity.Account.Identity.AppUser", "AppUser")
-                        .WithMany()
-                        .HasForeignKey("AppUserId")
+                        .WithOne()
+                        .HasForeignKey("GoKidAPI.Entity.Account.Users.Parent", "Id")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 

@@ -1,12 +1,15 @@
-﻿using FluentValidation;
+﻿using DocumentFormat.OpenXml.Spreadsheet;
+using FluentValidation;
 
 using GoKidAPI.DTO.Tasks.Requests;
 using GoKidAPI.DTO.Tasks.Responses;
 using GoKidAPI.Enums.Tasks;
+using GoKidAPI.Services.TaskTemplate;
 using GoKidAPI.Services.TaskTemplate.Interfaces;
 using GoKidAPI.Shared;
 
 using Microsoft.AspNetCore.Mvc;
+using System.Security.Claims;
 
 namespace GoKidAPI.Controllers
 {
@@ -239,20 +242,23 @@ namespace GoKidAPI.Controllers
             return StatusCode((int)result.StatusCode, result);
         }
 
-        [HttpGet]
-        [ProducesResponseType(typeof(Shared.Response<PaginatedList<TaskTemplateListItemResponse>>),StatusCodes.Status200OK)]
-        public async Task<IActionResult> GetAll([FromQuery] TaskRequestFilters filters)
-        {
-            var result = await _taskTemplateQueryService.GetAllAsync(filters);
-            return Ok(result);
-        }
 
-        /// <summary>
-        /// Get task template by ID and Type
-        /// </summary>
-        /// <param name="id">Task template ID</param>
-        /// <param name="type">Task template type (InstantReward, TextQuestion, VoiceQuestion, EvidenceSubmission)</param>
-        [HttpGet("{id}")]
+    [HttpGet]
+    public async Task<IActionResult> GetAll([FromQuery] TaskRequestFilters filters)
+    {
+        var role = User.FindFirst(ClaimTypes.Role)?.Value;
+
+        var result = await _taskTemplateQueryService.GetAllAsync(filters, role);
+
+        return Ok(result);
+    }
+
+    /// <summary>
+    /// Get task template by ID and Type
+    /// </summary>
+    /// <param name="id">Task template ID</param>
+    /// <param name="type">Task template type (InstantReward, TextQuestion, VoiceQuestion, EvidenceSubmission)</param>
+    [HttpGet("{id}")]
         [ProducesResponseType(typeof(Response<InstantRewardTaskResponse>), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(Response<TextQuestionTaskResponse>), StatusCodes.Status200OK)]
         [ProducesResponseType(typeof(Response<VoiceQuestionTaskResponse>), StatusCodes.Status200OK)]

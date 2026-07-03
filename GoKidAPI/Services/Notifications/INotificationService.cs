@@ -14,8 +14,10 @@ namespace GoKidAPI.Services.Notifications
         /// <summary>
         /// Returns all notifications for the authenticated user, newest first.
         /// </summary>
-        Task<Response<IEnumerable<NotificationResponse>>> GetNotificationsAsync(string userId);
-
+        Task<Response<NotificationListResponse>> GetNotificationsAsync(
+            string userId,
+            int page,
+            int pageSize);
         /// <summary>
         /// Marks a single notification as read. Returns NotFound if it doesn't belong to the user.
         /// </summary>

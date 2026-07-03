@@ -1,7 +1,9 @@
 ﻿// Jobs/AdventureAssignmentJob.cs
 using GoKidAPI.Data;
 using GoKidAPI.Entity.Institiution;
+using GoKidAPI.Enums;
 using GoKidAPI.Enums.Adventures;
+using GoKidAPI.Services.Notifications;
 
 using Microsoft.EntityFrameworkCore;
 
@@ -11,11 +13,16 @@ namespace GoKidAPI.Jobs
     {
         private readonly AppDbContext _context;
         private readonly ILogger<AdventureAssignmentJob> _logger;
+        private readonly INotificationService _notificationService;
 
-        public AdventureAssignmentJob(AppDbContext context, ILogger<AdventureAssignmentJob> logger)
+        public AdventureAssignmentJob(
+            AppDbContext context,
+            ILogger<AdventureAssignmentJob> logger,
+            INotificationService notificationService)
         {
             _context = context;
             _logger = logger;
+            _notificationService = notificationService;
         }
 
         /// <summary>
@@ -78,6 +85,17 @@ namespace GoKidAPI.Jobs
             {
                 await _context.ChildAdventureTasks.AddRangeAsync(newTasks);
                 await _context.SaveChangesAsync();
+            }
+
+            // Notify every child in the class that the adventure has started
+            foreach (var child in children)
+            {
+                _ = _notificationService.SendAsync(
+                    child.Id,
+                    NotificationType.AdventureStarted,
+                    "New Adventure!",
+                    $"\"{weeklyAdventure.Adventure.TitleEn}\" has started. Day 1 is ready!",
+                    weeklyAdventure.Id);
             }
 
             _logger.LogInformation(
@@ -164,6 +182,21 @@ namespace GoKidAPI.Jobs
             _logger.LogInformation(
                 "Missed tasks created: {Count} for WeeklyAdventure {Id}",
                 missedTasks.Count, weeklyAdventure.Id);
+
+            // Notify all active children that today's new day is unlocked (Day 2+)
+            var totalDays = weeklyAdventure.Adventure.Tasks.Count;
+            if (currentDayNumber >= 2 && currentDayNumber <= totalDays)
+            {
+                foreach (var childId in childIds)
+                {
+                    _ = _notificationService.SendAsync(
+                        childId,
+                        NotificationType.AdventureNewDay,
+                        $"Day {currentDayNumber} Unlocked!",
+                        $"Day {currentDayNumber} of \"{weeklyAdventure.Adventure.TitleEn}\" is ready. Don't miss it!",
+                        weeklyAdventure.Id);
+                }
+            }
         }
     }
 }

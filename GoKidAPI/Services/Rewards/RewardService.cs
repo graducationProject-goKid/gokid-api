@@ -3,8 +3,10 @@ using GoKidAPI.Data;
 using GoKidAPI.DTO.Gifts.Requests;
 using GoKidAPI.DTO.Gifts.Responses;
 using GoKidAPI.Entity.Gifts;
+using GoKidAPI.Enums;
 using GoKidAPI.Enums.Gifts;
 using GoKidAPI.Services.ImageUploading;
+using GoKidAPI.Services.Notifications;
 using GoKidAPI.Shared;
 using Microsoft.EntityFrameworkCore;
 
@@ -15,15 +17,18 @@ namespace GoKidAPI.Services.Rewards
         private readonly AppDbContext _context;
         private readonly IFileUploader _fileUploader;
         private readonly ResponseHandler _response;
+        private readonly INotificationService _notificationService;
 
         public RewardService(
             AppDbContext context,
             IFileUploader fileUploader,
-            ResponseHandler response)
+            ResponseHandler response,
+            INotificationService notificationService)
         {
             _context = context;
             _fileUploader = fileUploader;
             _response = response;
+            _notificationService = notificationService;
         }
 
         public async Task<Response<RewardResponse>> CreateRewardAsync(string parentId, CreateRewardRequest request)
@@ -121,6 +126,14 @@ namespace GoKidAPI.Services.Rewards
             reward.UpdatedBy = parentId;
 
             await _context.SaveChangesAsync();
+
+            _ = _notificationService.SendAsync(
+                reward.ChildId,
+                NotificationType.RewardGiven,
+                "You Got a Reward!",
+                $"Your parent gave you: \"{reward.NameEn}\". Well done!",
+                reward.Id);
+
             return _response.Success(MapToResponse(reward, reward.Child), "Reward given to child successfully!");
         }
 

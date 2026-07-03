@@ -47,8 +47,8 @@ namespace GoKidAPI.Services.TokenStore
             var Claims = new List<Claim>
             {
                 new Claim(ClaimTypes.NameIdentifier,appUser.Id.ToString()),
+                new Claim(ClaimTypes.GivenName,appUser.UserName),
                 new Claim(ClaimTypes.Email, appUser.Email),
-                new Claim(ClaimTypes.GivenName,appUser.UserName)
             };
 
             foreach (var role in roles)
@@ -101,32 +101,6 @@ namespace GoKidAPI.Services.TokenStore
         {
             return await _context.UserRefreshTokens
                 .AnyAsync(r => r.Token == refreshToken && !r.IsUsed && r.ExpiryDateUtc > DateTime.UtcNow);
-        }
-
-        public string GenerateChildJwt(Entity.Account.Users.Child child)
-        {
-            var claims = new List<Claim>
-            {
-                new Claim(ClaimTypes.NameIdentifier, child.Id),
-                new Claim(ClaimTypes.Name, child.Name),
-                new Claim(ClaimTypes.Role, UserType.Child.ToString()),
-                new Claim("childId", child.Id),
-                new Claim("parentId", child.Parent.Id),
-                new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
-                new Claim(JwtRegisteredClaimNames.Iat, DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString())
-            };
-
-            var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_jwtSettings.Secret));
-            var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
-
-            var token = new JwtSecurityToken(
-                issuer: _jwtSettings.ValidIssuer,
-                audience: _jwtSettings.ValidAudience,
-                claims: claims,
-                expires: DateTime.UtcNow.AddDays(30),
-                signingCredentials: creds);
-
-            return new JwtSecurityTokenHandler().WriteToken(token);
         }
 
         // Get user claims with its permissions

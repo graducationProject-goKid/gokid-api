@@ -10,6 +10,10 @@
         PointsEarned = 5,
         AdventureStarted = 6,
         WeekBonus = 7,
-        ChildLinked = 8
+        ChildLinked = 8,
+
+        GiftPurchased  = 9,
+        RewardGiven    = 10,
+        AdventureNewDay = 11,
     }
 }

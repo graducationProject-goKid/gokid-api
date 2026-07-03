@@ -6,6 +6,7 @@ using GoKidAPI.Entity.Gifts;
 using GoKidAPI.Enums;
 using GoKidAPI.Enums.Gifts;
 using GoKidAPI.Services.ImageUploading;
+using GoKidAPI.Services.Notifications;
 using GoKidAPI.Shared;
 
 using Microsoft.EntityFrameworkCore;
@@ -18,17 +19,20 @@ namespace GoKidAPI.Services.Gifts
         private readonly IFileUploader _fileUploader;
         private readonly ResponseHandler _response;
         private readonly ILogger<GiftService> _logger;
+        private readonly INotificationService _notificationService;
 
         public GiftService(
             AppDbContext context,
             IFileUploader fileUploader,
             ResponseHandler response,
-            ILogger<GiftService> logger)
+            ILogger<GiftService> logger,
+            INotificationService notificationService)
         {
             _context = context;
             _fileUploader = fileUploader;
             _response = response;
             _logger = logger;
+            _notificationService = notificationService;
         }
 
         // =================== Platform Admin ===================
@@ -231,6 +235,14 @@ namespace GoKidAPI.Services.Gifts
             _context.ChildGifts.Add(childGift);
             await _context.SaveChangesAsync();
 
+            if (!string.IsNullOrEmpty(child.ParentId))
+                _ = _notificationService.SendAsync(
+                    child.ParentId,
+                    NotificationType.GiftPurchased,
+                    "Gift Purchased",
+                    $"{child.Name} used {gift.PointsCost} points to get \"{gift.NameEn}\".",
+                    gift.Id);
+
             return _response.Success(new PurchaseGiftResponse
             {
                 ChildGiftId = childGift.Id,
@@ -262,7 +274,7 @@ namespace GoKidAPI.Services.Gifts
         public async Task<Response<List<ChildGiftResponse>>> GetChildGiftsForParentAsync(string parentAppUserId)
         {
             var activeChildId = await _context.Parents
-                .Where(p => p.AppUserId == parentAppUserId)
+                .Where(p => p.Id == parentAppUserId)
                 .Select(p => p.ActiveChildId)
                 .FirstOrDefaultAsync();
 
