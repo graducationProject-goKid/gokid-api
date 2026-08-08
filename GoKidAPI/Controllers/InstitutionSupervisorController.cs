@@ -1,21 +1,20 @@
-﻿using System.Security.Claims;
-
-using Azure;
-
+﻿using Azure;
 using GoKidAPI.Data;
 using GoKidAPI.DTO.InstitutionAdmin.Supervisor.Requests;
 using GoKidAPI.DTO.InstitutionAdmin.Supervisor.Responses;
+using GoKidAPI.DTO.Supervisor.Requests;
+using GoKidAPI.DTO.Supervisor.Responses;
 using GoKidAPI.Entity.Account.Identity;
 using GoKidAPI.Entity.Account.Users;
 using GoKidAPI.Enums;
 using GoKidAPI.Services.Email;
 using GoKidAPI.Services.Institution.Interface;
 using GoKidAPI.Shared;
-
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using System.Security.Claims;
 
 namespace GoKidAPI.Controllers
 {
@@ -93,6 +92,36 @@ namespace GoKidAPI.Controllers
             return StatusCode((int)result.StatusCode, result);
         }
 
+        /// <summary>
+        /// Updates an existing Supervisor's info (name, phone, avatar).
+        /// Only the InstitutionAdmin of the same institution can update.
+        /// </summary>
+        [HttpPut("{supervisorId}")]
+        [Consumes("multipart/form-data")]
+        [ProducesResponseType(typeof(Shared.Response<SupervisorUpdatedResponse>), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(Response), StatusCodes.Status404NotFound)]
+        public async Task<IActionResult> UpdateSupervisor(
+            string supervisorId,
+            [FromForm] UpdateSupervisorRequest request)
+        {
+            var currentUserId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            var result = await _supervisorService.UpdateSupervisorAsync(currentUserId, supervisorId, request);
+            return StatusCode((int)result.StatusCode, result);
+        }
+
+        /// <summary>
+        /// Soft deletes a Supervisor and removes them from all assigned classes.
+        /// Locks the account to prevent future logins.
+        /// </summary>
+        [HttpDelete("{supervisorId}")]
+        [ProducesResponseType(typeof(Shared.Response<object>), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(Response), StatusCodes.Status404NotFound)]
+        public async Task<IActionResult> DeleteSupervisor(string supervisorId)
+        {
+            var currentUserId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            var result = await _supervisorService.DeleteSupervisorAsync(currentUserId, supervisorId);
+            return StatusCode((int)result.StatusCode, result);
+        }
 
     }
 }

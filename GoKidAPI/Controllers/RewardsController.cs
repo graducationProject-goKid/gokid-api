@@ -56,9 +56,15 @@ namespace GoKidAPI.Controllers
         /// after the child reaches the target milestone.
         /// </summary>
         [HttpPut("{rewardId}/give")]
-        public async Task<IActionResult> GiveToChild(string rewardId)
+        public async Task<IActionResult> GiveToChild(
+            string rewardId,
+            [FromBody] GiveRewardRequest request)
         {
-            var result = await _rewardService.GiveRewardToChildAsync(CurrentUserId, rewardId);
+            var result = await _rewardService.GiveRewardToChildAsync(
+                CurrentUserId,
+                rewardId,
+                request);
+
             return StatusCode((int)result.StatusCode, result);
         }
 

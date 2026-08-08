@@ -301,7 +301,7 @@ namespace GoKidAPI.Migrations
 
                     b.HasIndex("UserId");
 
-                    b.ToTable("UserRefreshTokens");
+                    b.ToTable("UserRefreshTokens", (string)null);
                 });
 
             modelBuilder.Entity("GoKidAPI.Entity.Account.Users.Child", b =>
@@ -383,7 +383,7 @@ namespace GoKidAPI.Migrations
                         .IsUnique()
                         .HasFilter("[RegistrationCode] IS NOT NULL");
 
-                    b.ToTable("Childrens");
+                    b.ToTable("Childrens", (string)null);
                 });
 
             modelBuilder.Entity("GoKidAPI.Entity.Account.Users.Parent", b =>
@@ -415,16 +415,12 @@ namespace GoKidAPI.Migrations
                         .IsUnique()
                         .HasFilter("[ActiveChildId] IS NOT NULL");
 
-                    b.ToTable("Parents");
+                    b.ToTable("Parents", (string)null);
                 });
 
             modelBuilder.Entity("GoKidAPI.Entity.Account.Users.Supervisor", b =>
                 {
                     b.Property<string>("Id")
-                        .HasColumnType("nvarchar(450)");
-
-                    b.Property<string>("AppUserId")
-                        .IsRequired()
                         .HasColumnType("nvarchar(450)");
 
                     b.Property<DateTime>("CreatedAt")
@@ -448,11 +444,9 @@ namespace GoKidAPI.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("AppUserId");
-
                     b.HasIndex("InstitutionId");
 
-                    b.ToTable("Supervisors");
+                    b.ToTable("Supervisors", (string)null);
                 });
 
             modelBuilder.Entity("GoKidAPI.Entity.Classes.Class", b =>
@@ -487,7 +481,7 @@ namespace GoKidAPI.Migrations
 
                     b.HasIndex("InstitutionId");
 
-                    b.ToTable("Classes");
+                    b.ToTable("Classes", (string)null);
                 });
 
             modelBuilder.Entity("GoKidAPI.Entity.Classes.ClassSupervisor", b =>
@@ -517,7 +511,7 @@ namespace GoKidAPI.Migrations
 
                     b.HasIndex("SupervisorId");
 
-                    b.ToTable("ClassSupervisors");
+                    b.ToTable("ClassSupervisors", (string)null);
                 });
 
             modelBuilder.Entity("GoKidAPI.Entity.Gifts.ChildGift", b =>
@@ -560,7 +554,7 @@ namespace GoKidAPI.Migrations
 
                     b.HasIndex("GiftId");
 
-                    b.ToTable("ChildGifts");
+                    b.ToTable("ChildGifts", (string)null);
                 });
 
             modelBuilder.Entity("GoKidAPI.Entity.Gifts.Gift", b =>
@@ -616,7 +610,7 @@ namespace GoKidAPI.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("Gifts");
+                    b.ToTable("Gifts", (string)null);
                 });
 
             modelBuilder.Entity("GoKidAPI.Entity.Gifts.Reward", b =>
@@ -652,6 +646,9 @@ namespace GoKidAPI.Migrations
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("bit");
 
+                    b.Property<string>("MessageToChild")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<string>("NameAr")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
@@ -683,7 +680,7 @@ namespace GoKidAPI.Migrations
 
                     b.HasIndex("ParentId");
 
-                    b.ToTable("Rewards");
+                    b.ToTable("Rewards", (string)null);
                 });
 
             modelBuilder.Entity("GoKidAPI.Entity.Institiution.Adventure", b =>
@@ -784,7 +781,7 @@ namespace GoKidAPI.Migrations
 
                     b.HasIndex("InstitutionId");
 
-                    b.ToTable("Adventures");
+                    b.ToTable("Adventures", (string)null);
                 });
 
             modelBuilder.Entity("GoKidAPI.Entity.Institiution.AdventureTask", b =>
@@ -839,7 +836,7 @@ namespace GoKidAPI.Migrations
 
                     b.HasIndex("TaskTemplateId");
 
-                    b.ToTable("AdventureTasks");
+                    b.ToTable("AdventureTasks", (string)null);
                 });
 
             modelBuilder.Entity("GoKidAPI.Entity.Institiution.ChildAdventureProgress", b =>
@@ -894,7 +891,7 @@ namespace GoKidAPI.Migrations
 
                     b.HasIndex("WeeklyAdventureId");
 
-                    b.ToTable("ChildAdventureProgresses");
+                    b.ToTable("ChildAdventureProgresses", (string)null);
                 });
 
             modelBuilder.Entity("GoKidAPI.Entity.Institiution.ChildAdventureTask", b =>
@@ -967,7 +964,7 @@ namespace GoKidAPI.Migrations
 
                     b.HasIndex("WeeklyAdventureId");
 
-                    b.ToTable("ChildAdventureTasks");
+                    b.ToTable("ChildAdventureTasks", (string)null);
                 });
 
             modelBuilder.Entity("GoKidAPI.Entity.Institiution.Institution", b =>
@@ -1031,7 +1028,7 @@ namespace GoKidAPI.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("Institutions");
+                    b.ToTable("Institutions", (string)null);
                 });
 
             modelBuilder.Entity("GoKidAPI.Entity.Institiution.InstitutionAdmin", b =>
@@ -1063,7 +1060,7 @@ namespace GoKidAPI.Migrations
                         .IsUnique()
                         .HasFilter("[InstitutionId] IS NOT NULL");
 
-                    b.ToTable("InstitutionAdmins");
+                    b.ToTable("InstitutionAdmins", (string)null);
                 });
 
             modelBuilder.Entity("GoKidAPI.Entity.Institiution.WeeklyAdventure", b =>
@@ -1110,7 +1107,7 @@ namespace GoKidAPI.Migrations
 
                     b.HasIndex("ClassId");
 
-                    b.ToTable("WeeklyAdventures");
+                    b.ToTable("WeeklyAdventures", (string)null);
                 });
 
             modelBuilder.Entity("GoKidAPI.Entity.Levels.Level", b =>
@@ -1151,7 +1148,7 @@ namespace GoKidAPI.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("Levels");
+                    b.ToTable("Levels", (string)null);
                 });
 
             modelBuilder.Entity("GoKidAPI.Entity.Notification", b =>
@@ -1188,7 +1185,7 @@ namespace GoKidAPI.Migrations
 
                     b.HasIndex("UserId");
 
-                    b.ToTable("Notifications");
+                    b.ToTable("Notifications", (string)null);
                 });
 
             modelBuilder.Entity("GoKidAPI.Entity.PointsTransaction", b =>
@@ -1238,7 +1235,7 @@ namespace GoKidAPI.Migrations
 
                     b.HasIndex("ChildTaskId");
 
-                    b.ToTable("PointsTransactions");
+                    b.ToTable("PointsTransactions", (string)null);
                 });
 
             modelBuilder.Entity("GoKidAPI.Entity.Tasks.ChildTask", b =>
@@ -1325,7 +1322,7 @@ namespace GoKidAPI.Migrations
 
                     b.HasIndex("TaskTemplateId");
 
-                    b.ToTable("ChildTasks");
+                    b.ToTable("ChildTasks", (string)null);
                 });
 
             modelBuilder.Entity("GoKidAPI.Entity.Tasks.TaskCategory", b =>
@@ -1367,7 +1364,7 @@ namespace GoKidAPI.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("TaskCategories");
+                    b.ToTable("TaskCategories", (string)null);
                 });
 
             modelBuilder.Entity("GoKidAPI.Entity.Tasks.TaskSubCategory", b =>
@@ -1412,7 +1409,7 @@ namespace GoKidAPI.Migrations
 
                     b.HasIndex("CategoryId");
 
-                    b.ToTable("SubCategories");
+                    b.ToTable("SubCategories", (string)null);
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<string>", b =>
@@ -1577,6 +1574,12 @@ namespace GoKidAPI.Migrations
                     b.Property<string>("QuestionText")
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<int?>("RecommendedAgeFrom")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("RecommendedAgeTo")
+                        .HasColumnType("int");
+
                     b.Property<int?>("ReviewBy")
                         .HasColumnType("int");
 
@@ -1620,7 +1623,7 @@ namespace GoKidAPI.Migrations
 
                     b.HasIndex("SubCategoryId");
 
-                    b.ToTable("TaskTemplates");
+                    b.ToTable("TaskTemplates", (string)null);
                 });
 
             modelBuilder.Entity("GoKidAPI.Entity.Account.UserTokens.UserRefreshToken", b =>
@@ -1692,8 +1695,8 @@ namespace GoKidAPI.Migrations
             modelBuilder.Entity("GoKidAPI.Entity.Account.Users.Supervisor", b =>
                 {
                     b.HasOne("GoKidAPI.Entity.Account.Identity.AppUser", "AppUser")
-                        .WithMany()
-                        .HasForeignKey("AppUserId")
+                        .WithOne()
+                        .HasForeignKey("GoKidAPI.Entity.Account.Users.Supervisor", "Id")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 

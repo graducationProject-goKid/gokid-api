@@ -65,6 +65,8 @@ namespace GoKidAPI.Services.TaskTemplate
                 SubCategoryId = request.SubCategoryId,
                 Difficulty = request.Difficulty,
                 BasePoints = request.BasePoints,
+                RecommendedAgeFrom = request.RecommendedAgeFrom,
+                RecommendedAgeTo = request.RecommendedAgeTo,
                 TemplateType = TaskTemplateType.InstantReward,
                 CreatedBy = "platform-admin"
             };
@@ -85,6 +87,8 @@ namespace GoKidAPI.Services.TaskTemplate
                 SubCategoryNameEn = subCategory.NameEn,
                 Difficulty = template.Difficulty,
                 BasePoints = template.BasePoints,
+                RecommendedAgeFrom = template.RecommendedAgeFrom,
+                RecommendedAgeTo = template.RecommendedAgeTo,
                 CreatedAt = template.CreatedAt
             };
 

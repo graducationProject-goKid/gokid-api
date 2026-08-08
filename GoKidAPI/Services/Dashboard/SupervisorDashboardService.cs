@@ -63,7 +63,7 @@ namespace GoKidAPI.Services.Dashboard
         {
             var supervisor = await _context.Supervisors.AsNoTracking()
                 .Include(s => s.AppUser)
-                .FirstOrDefaultAsync(s => s.AppUserId == supervisorUserId && !s.IsDeleted);
+                .FirstOrDefaultAsync(s => s.Id == supervisorUserId && !s.IsDeleted);
 
             if (supervisor == null) return null;
 

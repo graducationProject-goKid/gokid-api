@@ -30,6 +30,11 @@ public class TaskTemplateBase : AuditableEntity
 
     public int BasePoints { get; set; } = 10;
 
+    // Recommended age range for this task (e.g. 5-7 years). Used to suggest age-appropriate
+    // tasks when assigning to a child or building an Adventure for a class.
+    public int? RecommendedAgeFrom { get; set; }
+    public int? RecommendedAgeTo { get; set; }
+
     // EvidenceSubmissionTask
     public string? InstructionsText { get; set; } = null!;
     public EvidenceType? EvidenceType { get; set; } // Future: Video, Document, Audio

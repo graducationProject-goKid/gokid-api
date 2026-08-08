@@ -3,6 +3,7 @@ using GoKidAPI.Entity.Tasks;
 using GoKidAPI.Enums.Tasks;
 
 using Microsoft.EntityFrameworkCore;
+using NPOI.SS.Formula.Functions;
 
 namespace GoKidAPI.Jobs
 {
@@ -31,7 +32,10 @@ namespace GoKidAPI.Jobs
 
             // جيب كل التمبليتس المتاحة مرة واحدة بدل ما تعمل query لكل طفل
             var allTemplates = await _context.TaskTemplates
-                .Where(t => !t.IsDeleted)
+                .Where(t =>
+                    (t.TemplateType == TaskTemplateType.InstantReward ||
+                     t.TemplateType == TaskTemplateType.VoiceQuestion)
+                    && !t.IsDeleted)
                 .Select(t => t.Id)
                 .ToListAsync();
 

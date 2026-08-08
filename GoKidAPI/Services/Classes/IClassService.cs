@@ -50,10 +50,12 @@ namespace GoKidAPI.Services.Classes
             string childId);
 
         Task<Response<PaginatedList<InstitutionChildResponse>>> GetInstitutionChildrenAsync(
-    string adminUserId,
+    string userId,
+    string userRole,
     int pageNumber,
     int pageSize,
     string? search = null,
     string? classId = null);
-    }
+        }
+    
 }

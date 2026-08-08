@@ -1,11 +1,9 @@
-﻿using System.Security.Claims;
-
-using GoKidAPI.DTO.Classes.Requests;
+﻿using GoKidAPI.DTO.Classes.Requests;
 using GoKidAPI.DTO.Classes.Responses;
 using GoKidAPI.Services.Classes;
 using GoKidAPI.Shared;
-
 using Microsoft.AspNetCore.Mvc;
+using System.Security.Claims;
 
 namespace GoKidAPI.Controllers
 {
@@ -132,12 +130,13 @@ namespace GoKidAPI.Controllers
         /// Enrolls a child to the institution using their registration code.
         /// Child won't be assigned to any class yet.
         /// </summary>
+        // I Use the Enroll Cause it has the same prop we need 
         [HttpPost("institution/enroll-child")]
         public async Task<IActionResult> EnrollChildToInstitution(
-            [FromBody] string registrationCode)
+            [FromBody] EnrollChildToClassRequest erollToInstitutionRequest)
         {
             var currentUserId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-            var result = await _classService.EnrollChildToInstitutionAsync(currentUserId, registrationCode);
+            var result = await _classService.EnrollChildToInstitutionAsync(currentUserId, erollToInstitutionRequest.RegistrationCode);
             return StatusCode((int)result.StatusCode, result);
         }
 
@@ -181,15 +180,19 @@ namespace GoKidAPI.Controllers
         /// Supports filtering by name and class.
         /// </summary>
         [HttpGet("institution/children")]
+        //[Authorize(Roles = "InstitutionAdmin,Supervisor")]
         public async Task<IActionResult> GetInstitutionChildren(
-            [FromQuery] int pageNumber = 1,
-            [FromQuery] int pageSize = 10,
-            [FromQuery] string? search = null,
-            [FromQuery] string? classId = null)
+    [FromQuery] int pageNumber = 1,
+    [FromQuery] int pageSize = 10,
+    [FromQuery] string? search = null,
+    [FromQuery] string? classId = null)
         {
             var currentUserId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            var currentUserRole = User.FindFirstValue(ClaimTypes.Role)!;
+
             var result = await _classService.GetInstitutionChildrenAsync(
-                currentUserId, pageNumber, pageSize, search, classId);
+                currentUserId, currentUserRole, pageNumber, pageSize, search, classId);
+
             return StatusCode((int)result.StatusCode, result);
         }
     }

@@ -39,7 +39,8 @@ namespace GoKidAPI.Services.Child
             IFileUploader fileUploader,
             IHttpClientFactory httpClientFactory,
             ILogger<ChildTaskService> logger,
-            INotificationService notificationService)
+            INotificationService notificationService,
+            IPointsService pointsService)
         {
             _context = context;
             _response = response;
@@ -47,6 +48,7 @@ namespace GoKidAPI.Services.Child
             _httpClientFactory = httpClientFactory;
             _logger = logger;
             _notificationService = notificationService;
+            _pointsService = pointsService;
         }
 
         public async Task<Response<List<TaskTemplateListItemResponse>>> GetDailyGeneralTasksAsync(string childId, DateTime date)
@@ -64,7 +66,8 @@ namespace GoKidAPI.Services.Child
                 .Where(ct => ct.ChildId == childId &&
                              ct.AssignedAt >= start &&
                              ct.AssignedAt < end &&
-                             ct.Source == TaskSource.SystemGeneral)
+                             ct.Source == TaskSource.SystemGeneral&&
+                             ct.Status != TaskStatus.Completed)
                 .Take(5)
                 .ToListAsync();
 
@@ -93,10 +96,13 @@ namespace GoKidAPI.Services.Child
                 .Include(t => t.Child)
                 .FirstOrDefaultAsync(t => t.Id == request.TaskId && t.ChildId == childId && !t.IsDeleted);
 
+            _logger.LogInformation($"XXXXXXXXXXXXXXXXXXXX {request.TaskId}");
+
             if (childTask == null)
                 return _response.NotFound<SubmitTaskResponse>("Task not found or does not belong to this child");
 
-            if (childTask.Status == TaskStatus.Completed || childTask.Status == TaskStatus.Rejected)
+            // Here we removed the condition ( || childTask.Status == TaskStatus.Rejected) cause when parent reject the task, the child can submit it again, so we should not block the submission in that case.
+            if (childTask.Status == TaskStatus.Completed)
                 return _response.BadRequest<SubmitTaskResponse>("Task already processed");
 
             var template = childTask.Template;
@@ -126,6 +132,14 @@ namespace GoKidAPI.Services.Child
                     response.Status = Enums.Tasks.TaskStatus.Completed;
                     response.AwardedPoints = template.BasePoints;
                     response.Message = "Task completed! Points awarded.";
+
+                    await _notificationService.SendAsync(
+                                childTask.Child.ParentId,
+                                NotificationType.ChildSubmittedTask,
+                                "New Submission",
+                                $"{childTask.Child.Name} submitted an general task today for \"{childTask.Template.TitleEn}\".",
+                                childTask.Id);
+
                     break;
 
                 case TaskTemplateType.VoiceQuestion:
@@ -198,6 +212,13 @@ namespace GoKidAPI.Services.Child
                     response.Status = childTask.Status;
                     response.ShadowingResult = aiResult;
 
+                    await _notificationService.SendAsync(
+                                childTask.Child.ParentId,
+                                NotificationType.ChildSubmittedTask,
+                                "New Submission",
+                                $"{childTask.Child.Name} submitted voice submission for \"{childTask.Template.TitleEn}\".",
+                                childTask.Id);
+
                     break;
 
                 case TaskTemplateType.EvidenceSubmission:
@@ -226,7 +247,7 @@ namespace GoKidAPI.Services.Child
                     if (childTask.Source == TaskSource.Parent)
                     {
                         if (!string.IsNullOrEmpty(childTask.Child.ParentId))
-                            _ = _notificationService.SendAsync(
+                            await _notificationService.SendAsync(
                                 childTask.Child.ParentId,
                                 NotificationType.ReviewRequested,
                                 "New Submission",
@@ -239,8 +260,8 @@ namespace GoKidAPI.Services.Child
                     }
                     else if (childTask.Source == TaskSource.InstitutionAdventure)
                     {
-                        // review by supervisour
-                        break;
+                        // review by supervisour 
+                        // it handled in the 'Submit Adventure Task'
                     }
                     break;
 
@@ -713,6 +734,26 @@ namespace GoKidAPI.Services.Child
                     response.Status = Enums.Tasks.TaskStatus.Completed;
                     response.AwardedPoints = template.BasePoints;
                     response.Message = "Task completed! Points awarded.";
+
+                    await _notificationService.SendAsync(
+                        childId,
+                        NotificationType.PointsEarned,
+                        "🎉 Great Job!",
+                        $"You earned {template.BasePoints} points.",
+                        childAdventureTask.Id);
+
+                     var parentId = await _context.Childrens
+                        .Where(c => c.Id == childId)
+                        .Select(c => c.ParentId)
+                        .FirstAsync();
+
+                    await _notificationService.SendAsync(
+                        parentId,
+                        NotificationType.PointsEarned,
+                        "Your child earned points",
+                        $"{child.NickName} earned {template.BasePoints} points.",
+                        childAdventureTask.Id);
+
                     break;
 
                 case TaskTemplateType.VoiceQuestion:
@@ -748,6 +789,26 @@ namespace GoKidAPI.Services.Child
 
                         response.AwardedPoints = template.BasePoints;
                         response.Message = $"Great job! Score: {aiResult.ScoreStatus}";
+
+                        await _notificationService.SendAsync(
+                        childId,
+                        NotificationType.PointsEarned,
+                        "🎉 Great Job!",
+                        $"You earned {template.BasePoints} points.",
+                        childAdventureTask.Id);
+
+                        var parentId2 = await _context.Childrens
+                           .Where(c => c.Id == childId)
+                           .Select(c => c.ParentId)
+                           .FirstAsync();
+
+                        await _notificationService.SendAsync(
+                            parentId2,
+                            NotificationType.PointsEarned,
+                            "Your child earned points",
+                            $"{child.NickName} earned {template.BasePoints} points.",
+                            childAdventureTask.Id);
+
                     }
                     else
                     {
@@ -768,11 +829,27 @@ namespace GoKidAPI.Services.Child
                         return _response.ServerError<SubmitTaskResponse>("Failed to upload evidence");
 
                     childAdventureTask.EvidenceUrl = evidenceUpload.Url;
-                    childAdventureTask.Status = AdventureChildTaskStatus.Completed;
+                    childAdventureTask.Status = AdventureChildTaskStatus.Pending;
                     childAdventureTask.IsApproved = null; // في انتظار الـ Supervisor
 
                     response.Status = Enums.Tasks.TaskStatus.ReviewRequested;
                     response.Message = "Evidence submitted. Waiting for supervisor review.";
+
+                    // Needed to send notification to the supervisour that a new advent task is submitted
+                    var supervisorIds = await _context.ClassSupervisors
+                        .Where(x => x.ClassId == weeklyAdventure.ClassId)
+                        .Select(x => x.SupervisorId)
+                        .ToListAsync();
+
+                    foreach (var supervisorId in supervisorIds)
+                    {
+                        await _notificationService.SendAsync(
+                            supervisorId,
+                            NotificationType.ChildSubmittedTask,
+                            "New Adventure Submission",
+                            $"{child.Name} submitted today's task.",
+                            childAdventureTask.Id);
+                    }
                     break;
 
                 default:

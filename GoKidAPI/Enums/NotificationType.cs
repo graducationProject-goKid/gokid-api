@@ -26,5 +26,7 @@
         AdventureDayCompleted = 18, // Send to supervisor when a childs(adventureDay) completes a day in the adventure
 
         LevelUp = 19, // Sent to child, parent, and class supervisors when the child reaches a new level
+        
+        ChildSubmittedTask = 20,
     }
 }

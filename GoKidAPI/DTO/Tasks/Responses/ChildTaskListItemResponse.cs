@@ -8,6 +8,7 @@
         public string TaskTemplateId { get; set; } = null!;
         public string TitleAr { get; set; } = null!;
         public string TitleEn { get; set; } = null!;
+        public string DescriptionEn { get; set; } = null!;
         public string CategoryNameAr { get; set; } = null!;
         public string CategoryNameEn { get; set; } = null!;
         public string SubCategoryNameAr { get; set; } = null!;

@@ -38,9 +38,9 @@ namespace GoKidAPI.Services.Child
 
             // جيب التاسكات اللي مصدرها Parent ومش deleted
             var tasks = await _context.ChildTasks
-                .Include(ct => ct.Template)
+                .Include(ct => ct.Template).ThenInclude(ct=>ct.SubCategory)  // Include SubCategory to get its name
                 .Where(ct => ct.ChildId == childId
-                          && ct.Source == TaskSource.Parent
+                          && ct.Source == TaskSource.Parent && ct.Status != Enums.Tasks.TaskStatus.Completed
                           && !ct.IsDeleted
                           && (ct.DueDate == null || ct.DueDate >= DateTime.UtcNow))  // مش expired
                 .OrderByDescending(ct => ct.AssignedAt)  // الأحدث أولاً
@@ -52,7 +52,7 @@ namespace GoKidAPI.Services.Child
                     TitleEn = ct.Template.TitleEn,
                     DescriptionAr = ct.Template.DescriptionAr,
                     DescriptionEn = ct.Template.DescriptionEn,
-                    IconUrl = ct.Template.IconUrl,
+                    IconUrl = ct.Template.TaskImageUrl,
                     Points = ct.Template.BasePoints,
                     //VerificationType = ct.Template.TemplateType switch
                     //{
@@ -65,7 +65,9 @@ namespace GoKidAPI.Services.Child
                     DueDate = ct.DueDate,
                     Status = ct.Status,
                     CompletedAt = ct.CompletedAt,
-                    RejectionReason = ct.RejectionReason
+                    RejectionReason = ct.RejectionReason,
+                    subCategoryNameEn = ct.Template.SubCategory != null ? ct.Template.SubCategory.NameEn : null,
+                    TemplateType = ct.Template.TemplateType.ToString()
                 })
                 .ToListAsync();
 

@@ -101,7 +101,10 @@ namespace GoKidAPI.Services.Rewards
             return _response.Success(result, "Rewards retrieved successfully");
         }
 
-        public async Task<Response<RewardResponse>> GiveRewardToChildAsync(string parentId, string rewardId)
+        public async Task<Response<RewardResponse>> GiveRewardToChildAsync(
+    string parentId,
+    string rewardId,
+    GiveRewardRequest request)
         {
             var reward = await _context.Rewards
                 .Include(r => r.Child)
@@ -115,7 +118,6 @@ namespace GoKidAPI.Services.Rewards
             if (reward.Status == RewardStatus.Given)
                 return _response.BadRequest<RewardResponse>("Reward already given to child");
 
-            // تحقق إن الطفل وصل للـ TargetPoints
             if (reward.Child.TotalPoints < reward.TargetPoints)
                 return _response.BadRequest<RewardResponse>(
                     $"Child hasn't reached the target yet. Current: {reward.Child.TotalPoints}, Target: {reward.TargetPoints}");
@@ -124,17 +126,24 @@ namespace GoKidAPI.Services.Rewards
             reward.GivenAt = DateTime.UtcNow;
             reward.UpdatedAt = DateTime.UtcNow;
             reward.UpdatedBy = parentId;
+            reward.MessageToChild = request?.MessageToChild;
 
             await _context.SaveChangesAsync();
 
-            _ = _notificationService.SendAsync(
+            var notificationMessage = string.IsNullOrWhiteSpace(request?.MessageToChild)
+                ? $"Your parent gave you: \"{reward.NameEn}\". Well done!"
+                : $"Your parent gave you: \"{reward.NameEn}\".\n\nMessage: {request.MessageToChild}";
+
+            await _notificationService.SendAsync(
                 reward.ChildId,
                 NotificationType.RewardGiven,
                 "You Got a Reward!",
-                $"Your parent gave you: \"{reward.NameEn}\". Well done!",
+                notificationMessage,
                 reward.Id);
 
-            return _response.Success(MapToResponse(reward, reward.Child), "Reward given to child successfully!");
+            return _response.Success(
+                MapToResponse(reward, reward.Child),
+                "Reward given to child successfully!");
         }
 
         public async Task<Response<List<RewardResponse>>> GetChildRewardsAsync(string childId)
@@ -173,7 +182,8 @@ namespace GoKidAPI.Services.Rewards
             TargetReached = child.TotalPoints >= reward.TargetPoints,
             Status = reward.Status,
             GivenAt = reward.GivenAt,
-            CreatedAt = reward.CreatedAt
+            CreatedAt = reward.CreatedAt,
+            MessageToChild = reward.MessageToChild,
         };
     }
 }

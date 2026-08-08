@@ -36,5 +36,6 @@ namespace GoKidAPI.DTO.Adventures.Responses
         public string? StoryText { get; set; }
         public string? StoryVoiceUrl { get; set; }
         public int Stars { get; set; }
+        public string templateType { get; set; } = null!;
     }
 }

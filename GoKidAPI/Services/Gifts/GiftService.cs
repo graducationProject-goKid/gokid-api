@@ -236,7 +236,7 @@ namespace GoKidAPI.Services.Gifts
             await _context.SaveChangesAsync();
 
             if (!string.IsNullOrEmpty(child.ParentId))
-                _ = _notificationService.SendAsync(
+                await _notificationService.SendAsync(
                     child.ParentId,
                     NotificationType.GiftPurchased,
                     "Gift Purchased",

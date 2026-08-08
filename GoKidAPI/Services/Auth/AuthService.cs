@@ -88,6 +88,9 @@ namespace GoKidAPI.Services.Auth
                         if (!user.EmailConfirmed)
                             return _responseHandler.BadRequest<AuthResponse>("Please verify your email first");
 
+                        if (await _userManager.IsLockedOutAsync(user))
+                            return _responseHandler.Forbidden<AuthResponse>("This account has been deactivated. Please contact your administrator.");
+
                         if (string.IsNullOrEmpty(request.Password))
                             return _responseHandler.BadRequest<AuthResponse>("Password is required");
 
@@ -115,15 +118,15 @@ namespace GoKidAPI.Services.Auth
 
                             parentResp.AccessToken = accessToken;
                             parentResp.RefreshToken = refreshToken;
-                                parentResp.UserId = user.Id;
+                            parentResp.UserId = user.Id;
                             parentResp.DisplayName = user.DisplayName ?? user.Email!;
                             parentResp.Email = user.Email!;
                             parentResp.UserType = request.LoginAs.ToString();
                             parentResp.ChildId = parent.ActiveChildId;
                             parentResp.ParentId = parent.Id;
-
+                            parentResp.ProfileImageUrl = user.AvatarUrl;
                         }
-                        else
+                        else if (request.LoginAs == UserType.Supervisor || request.LoginAs == UserType.PlatformAdmin)
                         {
                             parentResp.AccessToken = accessToken;
                             parentResp.RefreshToken = refreshToken;
@@ -131,7 +134,27 @@ namespace GoKidAPI.Services.Auth
                             parentResp.DisplayName = user.DisplayName ?? user.Email!;
                             parentResp.Email = user.Email!;
                             parentResp.UserType = request.LoginAs.ToString();
-                            
+                            parentResp.ProfileImageUrl = user.AvatarUrl;
+                        }
+                        else
+                        {
+                            // InstitutionAdmin
+                            // get the institution admin profile and then get the institution
+                            var institutionAdmin = await _context.InstitutionAdmins
+                                .Include(i => i.Institution)
+                                .AsNoTracking()
+                                .FirstOrDefaultAsync(i => i.Id == user.Id);
+
+
+
+                            parentResp.AccessToken = accessToken;
+                            parentResp.RefreshToken = refreshToken;
+                            parentResp.UserId = user.Id;
+                            parentResp.DisplayName = user.DisplayName ?? user.Email!;
+                            parentResp.Email = user.Email!;
+                            parentResp.UserType = request.LoginAs.ToString();
+                            parentResp.ProfileImageUrl = institutionAdmin.Institution.LogoUrl;
+
                         }
 
 
@@ -171,7 +194,8 @@ namespace GoKidAPI.Services.Auth
                             Email = "",
                             UserType = UserType.Child.ToString(),
                             ChildId = child.Id,
-                            ParentId = child.ParentId
+                            ParentId = child.ParentId,
+                            ProfileImageUrl = childUser.AvatarUrl
                         };
 
                         _logger.LogInformation("Child login successful: {Name} with code {Code}", child.Name, request.Identifier);
@@ -317,6 +341,14 @@ namespace GoKidAPI.Services.Auth
                     .Include(p => p.ActiveChild)
                     .FirstOrDefaultAsync(p => p.Id == parentId);
 
+                var firstLevel = await _context.Levels
+                    .OrderBy(l => l.MinPoints) // أو OrderBy(l => l.MinPoints)
+                    .FirstOrDefaultAsync();
+
+                if (firstLevel == null)
+                    return _responseHandler.ServerError<CreateChildResponse>("No levels configured");
+
+
                 if (parent == null)
                     return _responseHandler.NotFound<CreateChildResponse>("Parent not found");
 
@@ -372,6 +404,7 @@ namespace GoKidAPI.Services.Auth
                         CodeGeneratedAt = DateTime.UtcNow,
                         CreatedAt = DateTime.UtcNow,
                         CreatedBy = parent.Id,
+                        Level = firstLevel
                     };
 
                     // Set the new child as the active child for the parent
@@ -807,12 +840,12 @@ namespace GoKidAPI.Services.Auth
                     RegistrationCode = parent.ActiveChild.RegistrationCode,
                     ClassName = parent.ActiveChild.Class?.Name,
                     InstitutionName = parent.ActiveChild.Institution?.Name,
-                    Level = parent.ActiveChild.Level is null ? null : new DTO.Levels.Responses.LevelInfo
+                    Level = new DTO.Levels.Responses.LevelInfo
                     {
-                        Id = parent.ActiveChild.Level.Id,
-                        Name = parent.ActiveChild.Level.Name,
-                        Order = parent.ActiveChild.Level.Order,
-                        BadgeUrl = parent.ActiveChild.Level.BadgeUrl,
+                        Id = parent.ActiveChild.Level?.Id,
+                        Name = parent.ActiveChild.Level?.Name,
+                        Order = parent.ActiveChild.Level?.Order ?? 0,
+                        BadgeUrl = parent.ActiveChild.Level?.BadgeUrl,
                     }
                 }
             };

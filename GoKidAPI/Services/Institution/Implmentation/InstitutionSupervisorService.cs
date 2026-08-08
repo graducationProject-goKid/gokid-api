@@ -1,6 +1,8 @@
 ﻿using GoKidAPI.Data;
 using GoKidAPI.DTO.InstitutionAdmin.Supervisor.Requests;
 using GoKidAPI.DTO.InstitutionAdmin.Supervisor.Responses;
+using GoKidAPI.DTO.Supervisor.Requests;
+using GoKidAPI.DTO.Supervisor.Responses;
 using GoKidAPI.Entity.Account.Identity;
 using GoKidAPI.Entity.Account.Users;
 using GoKidAPI.Enums;
@@ -268,8 +270,7 @@ namespace GoKidAPI.Services.Institution.Implmentation
             // 7. Create Supervisor entity
             var supervisor = new Entity.Account.Users.Supervisor
             {
-                Id = Guid.NewGuid().ToString(),
-                AppUserId = user.Id,
+                Id = user.Id,
                 InstitutionId = institution.Id,
                 CreatedBy = currentAdminUserId
             };
@@ -324,6 +325,142 @@ namespace GoKidAPI.Services.Institution.Implmentation
             return _response.Created(
                 responseData,
                 "Supervisor account has been created successfully and login credentials have been sent via email.");
+        }
+
+
+        public async Task<Response<SupervisorUpdatedResponse>> UpdateSupervisorAsync(
+    string currentAdminUserId,
+    string supervisorId,
+    UpdateSupervisorRequest request)
+        {
+            _logger.LogInformation(
+                "UpdateSupervisor started. AdminId: {AdminId}, SupervisorId: {SupervisorId}",
+                currentAdminUserId, supervisorId);
+
+            // جيب الـ InstitutionAdmin
+            var institutionAdmin = await _context.InstitutionAdmins
+                .Include(a => a.Institution)
+                .FirstOrDefaultAsync(a => a.Id == currentAdminUserId);
+
+            if (institutionAdmin?.Institution == null)
+                return _response.NotFound<SupervisorUpdatedResponse>(
+                    "Institution administrator was not found.");
+
+            // جيب الـ Supervisor وتحقق إنه تابع لنفس المؤسسة
+            var supervisor = await _context.Supervisors
+                .Include(s => s.AppUser)
+                .FirstOrDefaultAsync(s => s.Id == supervisorId
+                                       && s.InstitutionId == institutionAdmin.Institution.Id
+                                       && !s.IsDeleted);
+
+            if (supervisor == null)
+                return _response.NotFound<SupervisorUpdatedResponse>(
+                    "Supervisor not found or does not belong to your institution.");
+
+            var user = supervisor.AppUser;
+
+            // Update الـ fields
+            if (!string.IsNullOrWhiteSpace(request.FullName))
+                user.DisplayName = request.FullName;
+
+            if (!string.IsNullOrWhiteSpace(request.PhoneNumber))
+                user.PhoneNumber = request.PhoneNumber;
+
+            // Upload Avatar لو موجود
+            if (request.AvatarFile != null)
+            {
+                try
+                {
+                    var uploadResult = await _cloudinaryService.UploadAsync(request.AvatarFile);
+                    user.AvatarUrl = uploadResult.Url;
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "UpdateSupervisor failed during avatar upload. SupervisorId: {Id}", supervisorId);
+                    return _response.BadRequest<SupervisorUpdatedResponse>("Failed to upload avatar image.");
+                }
+            }
+
+            var updateResult = await _userManager.UpdateAsync(user);
+            if (!updateResult.Succeeded)
+            {
+                var errors = string.Join(" | ", updateResult.Errors.Select(e => e.Description));
+                _logger.LogError("UpdateSupervisor failed. Errors: {Errors}", errors);
+                return _response.BadRequest<SupervisorUpdatedResponse>(errors);
+            }
+
+            supervisor.UpdatedAt = DateTime.UtcNow;
+            supervisor.UpdatedBy = currentAdminUserId;
+            await _context.SaveChangesAsync();
+
+            _logger.LogInformation(
+                "UpdateSupervisor completed. SupervisorId: {SupervisorId}",
+                supervisorId);
+
+            return _response.Success(new SupervisorUpdatedResponse
+            {
+                SupervisorId = supervisor.Id,
+                AppUserId = user.Id,
+                FullName = user.DisplayName,
+                PhoneNumber = user.PhoneNumber,
+                AvatarUrl = user.AvatarUrl,
+                InstitutionName = institutionAdmin.Institution.Name
+            }, "Supervisor updated successfully.");
+        }
+
+        public async Task<Response<object>> DeleteSupervisorAsync(
+            string currentAdminUserId,
+            string supervisorId)
+        {
+            _logger.LogInformation(
+                "DeleteSupervisor started. AdminId: {AdminId}, SupervisorId: {SupervisorId}",
+                currentAdminUserId, supervisorId);
+
+            var institutionAdmin = await _context.InstitutionAdmins
+                .Include(a => a.Institution)
+                .FirstOrDefaultAsync(a => a.Id == currentAdminUserId);
+
+            if (institutionAdmin?.Institution == null)
+                return _response.NotFound<object>("Institution administrator was not found.");
+
+            var supervisor = await _context.Supervisors
+                .Include(s => s.AppUser)
+                .Include(s => s.SupervisedClasses)
+                .FirstOrDefaultAsync(s => s.Id == supervisorId
+                                       && s.InstitutionId == institutionAdmin.Institution.Id
+                                       && !s.IsDeleted);
+
+            if (supervisor == null)
+                return _response.NotFound<object>(
+                    "Supervisor not found or does not belong to your institution.");
+
+            // شيله من كل الكلاسات الأول
+            if (supervisor.SupervisedClasses != null && supervisor.SupervisedClasses.Any())
+            {
+                foreach (var classSupervisor in supervisor.SupervisedClasses.Where(cs => !cs.IsDeleted))
+                {
+                    classSupervisor.IsDeleted = true;
+                    classSupervisor.UpdatedAt = DateTime.UtcNow;
+                    classSupervisor.UpdatedBy = currentAdminUserId;
+                }
+            }
+
+            // Soft delete الـ Supervisor entity
+            supervisor.IsDeleted = true;
+            supervisor.UpdatedAt = DateTime.UtcNow;
+            supervisor.UpdatedBy = currentAdminUserId;
+
+            // Lock الـ AppUser عشان ما يقدرش يسجل دخول
+            await _userManager.SetLockoutEnabledAsync(supervisor.AppUser, true);
+            await _userManager.SetLockoutEndDateAsync(supervisor.AppUser, DateTimeOffset.MaxValue);
+
+            await _context.SaveChangesAsync();
+
+            _logger.LogInformation(
+                "DeleteSupervisor completed. SupervisorId: {SupervisorId}, AdminId: {AdminId}",
+                supervisorId, currentAdminUserId);
+
+            return _response.Deleted<object>("Supervisor deleted successfully.");
         }
 
     }

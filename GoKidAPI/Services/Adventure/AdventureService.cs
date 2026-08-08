@@ -363,7 +363,8 @@ namespace GoKidAPI.Services.Adventure
                         TitleEn = t.TaskTemplate.TitleEn,
                         StoryText = t.StoryText,
                         StoryVoiceUrl = t.StoryVoiceUrl,
-                        Stars = t.Stars
+                        Stars = t.Stars,
+                        templateType = t.TaskTemplate.TemplateType.ToString()
                     })
                     .ToList()
             };
@@ -373,10 +374,11 @@ namespace GoKidAPI.Services.Adventure
 
 
         #region Update Adventure
+
         public async Task<Shared.Response<AdventureDetailsResponse>> UpdateAdventureAsync(
-            string institutionAdminId,
-            string adventureId,
-            UpdateAdventureRequest request)
+    string institutionAdminId,
+    string adventureId,
+    UpdateAdventureRequest request)
         {
             var adventure = await _context.Adventures
                 .Include(a => a.Tasks)
@@ -412,10 +414,6 @@ namespace GoKidAPI.Services.Adventure
             if (request.BonusPoints.HasValue)
                 adventure.BonusPoints = request.BonusPoints.Value;
 
-            adventure.UpdatedAt = DateTime.UtcNow;
-            adventure.UpdatedBy = institutionAdminId;
-
-            // Handle Description Voice update
             if (request.DescriptionVoiceFile != null)
             {
                 var upload = await _fileUploader.UploadAsync(request.DescriptionVoiceFile);
@@ -423,11 +421,67 @@ namespace GoKidAPI.Services.Adventure
                 adventure.DescriptionVoicePublicId = upload.PublicId;
             }
 
+            // ✅ Update Tasks لو موجودة في الـ Request
+            if (request.Tasks != null && request.Tasks.Any())
+            {
+                // تحقق إن كل الـ TaskTemplateIds موجودة
+                var templateIds = request.Tasks.Select(t => t.TaskTemplateId).ToList();
+                var existingTemplates = await _context.TaskTemplates
+                    .Where(t => templateIds.Contains(t.Id))
+                    .Select(t => t.Id)
+                    .ToListAsync();
+
+                var missingTemplate = templateIds.FirstOrDefault(id => !existingTemplates.Contains(id));
+                if (missingTemplate != null)
+                    return _response.NotFound<AdventureDetailsResponse>(
+                        $"Task template {missingTemplate} not found");
+
+                // احذف القديمة
+                _context.AdventureTasks.RemoveRange(adventure.Tasks);
+
+                // أضف الجديدة
+                foreach (var taskReq in request.Tasks.OrderBy(t => t.DayNumber))
+                {
+                    var adventureTask = new AdventureTask
+                    {
+                        Id = Guid.NewGuid().ToString(),
+                        AdventureId = adventure.Id,
+                        TaskTemplateId = taskReq.TaskTemplateId,
+                        DayNumber = taskReq.DayNumber,
+                        StoryText = taskReq.StoryText,
+                        Stars = 3,
+                        CreatedBy = institutionAdminId
+                    };
+
+                    if (taskReq.StoryVoiceFile != null)
+                    {
+                        var upload = await _fileUploader.UploadAsync(taskReq.StoryVoiceFile);
+                        adventureTask.StoryVoiceUrl = upload.Url;
+                        adventureTask.StoryVoicePublicId = upload.PublicId;
+                    }
+
+                    _context.AdventureTasks.Add(adventureTask);
+                }
+
+                // لو في tasks جديدة محتاجة TTS → Enqueue
+                bool needsTts = request.Tasks.Any(t => t.StoryVoiceFile == null
+                                                    && !string.IsNullOrWhiteSpace(t.StoryText));
+                if (needsTts)
+                {
+                    _backgroundJobClient.Enqueue<AdventureTtsJob>(
+                        job => job.ProcessAdventureTtsAsync(adventure.Id, institutionAdminId)
+                    );
+                }
+            }
+
+            adventure.UpdatedAt = DateTime.UtcNow;
+            adventure.UpdatedBy = institutionAdminId;
+
             await _context.SaveChangesAsync();
 
-            // Return updated details
             return await GetAdventureDetailsAsync(institutionAdminId, adventureId);
         }
+
         #endregion
 
         #region Delete Adventure (Soft Delete)
@@ -542,7 +596,7 @@ namespace GoKidAPI.Services.Adventure
             // Get the list of supervisor user IDs for the class to notify them
             var supervisorUserIds = await _context.ClassSupervisors
                 .Where(cs => cs.ClassId == request.ClassId && !cs.IsDeleted)
-                .Select(cs => cs.Supervisor.AppUserId)
+                .Select(cs => cs.Supervisor.Id)
                 .ToListAsync();
 
             foreach (var supervisorUserId in supervisorUserIds)
@@ -609,7 +663,7 @@ namespace GoKidAPI.Services.Adventure
             {
                 // تحقق إن الـ Supervisor مسؤول عن الكلاس دي
                 var supervisor = await _context.Supervisors
-                    .FirstOrDefaultAsync(s => s.AppUserId == userId && !s.IsDeleted);
+                    .FirstOrDefaultAsync(s => s.Id == userId && !s.IsDeleted);
 
                 if (supervisor == null)
                     return _response.NotFound<List<WeeklyAdventureClassResponse>>("Supervisor not found");

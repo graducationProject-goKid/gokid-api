@@ -1,4 +1,5 @@
 ﻿using GoKidAPI.Enums.Gifts;
+using System.ComponentModel.DataAnnotations;
 
 namespace GoKidAPI.DTO.Gifts.Responses
 {
@@ -15,6 +16,7 @@ namespace GoKidAPI.DTO.Gifts.Responses
         public string ChildName { get; set; } = null!;
         public int ChildCurrentPoints { get; set; }
         public bool TargetReached { get; set; }     // عشان الـ Frontend يعرف يظهر زرار Give
+        public string? MessageToChild { get; set; }
         public RewardStatus Status { get; set; }
         public DateTime? GivenAt { get; set; }
         public DateTime CreatedAt { get; set; }

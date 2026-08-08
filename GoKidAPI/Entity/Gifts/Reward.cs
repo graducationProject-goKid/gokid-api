@@ -2,6 +2,7 @@
 using GoKidAPI.Entity.Account.Users;
 using GoKidAPI.Entity.Base;
 using GoKidAPI.Enums.Gifts;
+using System.ComponentModel.DataAnnotations;
 
 namespace GoKidAPI.Entity.Gifts
 {
@@ -15,6 +16,7 @@ namespace GoKidAPI.Entity.Gifts
         public string? ImageUrl { get; set; }
         public string? ImagePublicId { get; set; }
         public int TargetPoints { get; set; }
+        public string? MessageToChild { get; set; }
 
         // Relation between child and parent
         public string ParentId { get; set; } = null!;

@@ -25,10 +25,7 @@ namespace GoKidAPI.Jobs
             _notificationService = notificationService;
         }
 
-        /// <summary>
-        /// بيتشغل لما الـ Admin يعمل Assign Adventure to Class
-        /// بيكرير ChildAdventureTask لكل أطفال الكلاس لليوم الأول بس
-        /// </summary>
+
         public async Task AssignDayOneTasksAsync(string weeklyAdventureId)
         {
             var weeklyAdventure = await _context.WeeklyAdventures
@@ -223,7 +220,7 @@ namespace GoKidAPI.Jobs
         {
             var supervisorUserIds = await _context.ClassSupervisors
                 .Where(cs => cs.ClassId == classId && !cs.IsDeleted)
-                .Select(cs => cs.Supervisor.AppUserId)
+                .Select(cs => cs.Supervisor.Id)
                 .ToListAsync();
 
             foreach (var supervisorUserId in supervisorUserIds)

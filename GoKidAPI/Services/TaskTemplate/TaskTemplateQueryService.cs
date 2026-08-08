@@ -1,4 +1,5 @@
 ﻿using GoKidAPI.Data;
+using GoKidAPI.DTO.Tasks.Requests;
 using GoKidAPI.DTO.Tasks.Responses;
 using GoKidAPI.Entity.Tasks;
 using GoKidAPI.Enums;
@@ -26,7 +27,8 @@ namespace GoKidAPI.Services.TaskTemplate
 
         public async Task<Response<PaginatedList<TaskTemplateListItemResponse>>> GetAllAsync(
             TaskRequestFilters filters,
-            string? role)
+            string? role,
+            string? requesterId = null)
         {
             try
             {
@@ -50,12 +52,6 @@ namespace GoKidAPI.Services.TaskTemplate
                     query = query.Where(t => t.TemplateType == filters.TemplateType.Value);
                 }
 
-                // ✅ Task-specific filters
-                if (filters.TemplateType.HasValue)
-                {
-                    query = query.Where(t => t.TemplateType == filters.TemplateType.Value);
-                }
-
                 // ✅ Difficulty filter
                 if (filters.Difficulty.HasValue)
                 {
@@ -67,6 +63,21 @@ namespace GoKidAPI.Services.TaskTemplate
                 {
                     query = query.Where(t => t.SubCategoryId == filters.SubCategoryId.ToString());
                 }
+
+                // ✅ Age-appropriate filtering: for a Parent, automatically restrict to tasks
+                // suitable for their active child's age. Otherwise, the caller (e.g. an
+                // Institution Admin building an Adventure) may manually pass RecommendedAge.
+                int? age = null;
+                if (role == UserType.Parent.ToString() && !string.IsNullOrEmpty(requesterId))
+                {
+                    age = await GetParentActiveChildAgeAsync(requesterId);
+                }
+                else if (filters.RecommendedAge.HasValue)
+                {
+                    age = filters.RecommendedAge.Value;
+                }
+
+                query = ApplyAgeFilter(query, age);
 
                 // (اختياري) Sorting
                 query = sortColumn switch
@@ -103,6 +114,8 @@ namespace GoKidAPI.Services.TaskTemplate
                         SubCategoryId = t.SubCategoryId.ToString(),
                         Difficulty = t.Difficulty,
                         BasePoints = t.BasePoints,
+                        RecommendedAgeFrom = t.RecommendedAgeFrom,
+                        RecommendedAgeTo = t.RecommendedAgeTo,
                         CategoryId = t.SubCategory.CategoryId.ToString(),
                         CategoryNameAr = t.SubCategory.Category.NameAr,
                         CategoryNameEn = t.SubCategory.Category.NameEn,
@@ -157,6 +170,8 @@ namespace GoKidAPI.Services.TaskTemplate
                         SubCategoryNameEn = baseTemplate.SubCategory?.NameEn ?? "No Category",
                         Difficulty = baseTemplate.Difficulty,
                         BasePoints = baseTemplate.BasePoints,
+                        RecommendedAgeFrom = baseTemplate.RecommendedAgeFrom,
+                        RecommendedAgeTo = baseTemplate.RecommendedAgeTo,
                         CreatedAt = baseTemplate.CreatedAt
                     },
 
@@ -172,6 +187,8 @@ namespace GoKidAPI.Services.TaskTemplate
                         SubCategoryNameEn = baseTemplate.SubCategory?.NameEn ?? "No Category",
                         Difficulty = baseTemplate.Difficulty,
                         BasePoints = baseTemplate.BasePoints,
+                        RecommendedAgeFrom = baseTemplate.RecommendedAgeFrom,
+                        RecommendedAgeTo = baseTemplate.RecommendedAgeTo,
                         CreatedAt = baseTemplate.CreatedAt,
                         QuestionText = baseTemplate.QuestionText!,
                         TaskImageUrl = baseTemplate.TaskImageUrl,
@@ -191,6 +208,8 @@ namespace GoKidAPI.Services.TaskTemplate
                         SubCategoryNameEn = baseTemplate.SubCategory?.NameEn ?? "No Category",
                         Difficulty = baseTemplate.Difficulty,
                         BasePoints = baseTemplate.BasePoints,
+                        RecommendedAgeFrom = baseTemplate.RecommendedAgeFrom,
+                        RecommendedAgeTo = baseTemplate.RecommendedAgeTo,
                         CreatedAt = baseTemplate.CreatedAt,
                         QuestionText = baseTemplate.QuestionText!,
                         TaskImageUrl = baseTemplate.TaskImageUrl,
@@ -212,6 +231,8 @@ namespace GoKidAPI.Services.TaskTemplate
                         SubCategoryNameEn = baseTemplate.SubCategory?.NameEn ?? "No Category",
                         Difficulty = baseTemplate.Difficulty,
                         BasePoints = baseTemplate.BasePoints,
+                        RecommendedAgeFrom = baseTemplate.RecommendedAgeFrom,
+                        RecommendedAgeTo = baseTemplate.RecommendedAgeTo,
                         CreatedAt = baseTemplate.CreatedAt,
                         InstructionsText = baseTemplate.InstructionsText!,
                         TaskImageUrl = baseTemplate.TaskImageUrl,
@@ -233,7 +254,7 @@ namespace GoKidAPI.Services.TaskTemplate
         }
     
         public async Task<Response<PaginatedList<TaskTemplateListItemResponse>>> GetBySubCategoryAsync(
-            string subCategoryId, DifficultyLevel? difficulty, RequestFilters<TaskSortingColumn> filters)
+            string subCategoryId, DifficultyLevel? difficulty, RequestFilters<TaskSortingColumn> filters, int? recommendedAge = null)
         {
             try
             {
@@ -268,6 +289,8 @@ namespace GoKidAPI.Services.TaskTemplate
 
                 if (difficulty.HasValue)
                     query = query.Where(t => t.Difficulty == difficulty.Value);
+
+                query = ApplyAgeFilter(query, recommendedAge);
 
                 // Apply Sorting
                 query = sortColumn switch
@@ -314,6 +337,8 @@ namespace GoKidAPI.Services.TaskTemplate
                         SubCategoryNameEn = t.SubCategory!.NameEn,
                         Difficulty = t.Difficulty,
                         BasePoints = t.BasePoints,
+                        RecommendedAgeFrom = t.RecommendedAgeFrom,
+                        RecommendedAgeTo = t.RecommendedAgeTo,
                         TemplateType = t.TemplateType,
                         CreatedAt = t.CreatedAt
                     })
@@ -333,7 +358,7 @@ namespace GoKidAPI.Services.TaskTemplate
         }
         
         public async Task<Response<PaginatedList<TaskTemplateListItemResponse>>> GetByCategoryAsync(
-            string categoryId, RequestFilters<TaskSortingColumn> filters)
+            string categoryId, RequestFilters<TaskSortingColumn> filters, int? recommendedAge = null)
         {
             try
             {
@@ -378,6 +403,8 @@ namespace GoKidAPI.Services.TaskTemplate
                     .AsNoTracking()
                     .Include(t => t.SubCategory)
                     .Where(t => subCategoryIds.Contains(t.SubCategoryId.ToString()));
+
+                query = ApplyAgeFilter(query, recommendedAge);
 
                 // Apply Sorting
                 query = sortColumn switch
@@ -428,6 +455,8 @@ namespace GoKidAPI.Services.TaskTemplate
                         SubCategoryNameEn = t.SubCategory!.NameEn,
                         Difficulty = t.Difficulty,
                         BasePoints = t.BasePoints,
+                        RecommendedAgeFrom = t.RecommendedAgeFrom,
+                        RecommendedAgeTo = t.RecommendedAgeTo,
                         TemplateType = t.TemplateType,
                         CreatedAt = t.CreatedAt
                     })
@@ -444,6 +473,68 @@ namespace GoKidAPI.Services.TaskTemplate
                 _logger.LogError(ex, "Error retrieving tasks for Category {CategoryId}", categoryId);
                 return _response.ServerError<PaginatedList<TaskTemplateListItemResponse>>("An error occurred while retrieving task templates");
             }
+        }
+
+        public async Task<Response<TaskTemplateListItemResponse>> UpdateRecommendedAgeAsync(
+            string id, UpdateRecommendedAgeRequest request)
+        {
+            var template = await _context.TaskTemplates
+                .Include(t => t.SubCategory)
+                .ThenInclude(sc => sc.Category)
+                .FirstOrDefaultAsync(t => t.Id == id);
+
+            if (template == null)
+                return _response.NotFound<TaskTemplateListItemResponse>("Task template not found");
+
+            template.RecommendedAgeFrom = request.RecommendedAgeFrom;
+            template.RecommendedAgeTo = request.RecommendedAgeTo;
+
+            await _context.SaveChangesAsync();
+
+            var response = new TaskTemplateListItemResponse
+            {
+                Id = template.Id,
+                TitleAr = template.TitleAr,
+                TitleEn = template.TitleEn,
+                DescriptionAr = template.DescriptionAr,
+                DescriptionEn = template.DescriptionEn,
+                IconUrl = template.IconUrl,
+                SubCategoryId = template.SubCategoryId?.ToString() ?? "No Category",
+                SubCategoryNameEn = template.SubCategory?.NameEn ?? "No Category",
+                SubCategoryNameAr = template.SubCategory?.NameAr ?? "No Category",
+                CategoryId = template.SubCategory?.CategoryId ?? "No Category",
+                CategoryNameAr = template.SubCategory?.Category?.NameAr ?? "No Category",
+                CategoryNameEn = template.SubCategory?.Category?.NameEn ?? "No Category",
+                Difficulty = template.Difficulty,
+                BasePoints = template.BasePoints,
+                RecommendedAgeFrom = template.RecommendedAgeFrom,
+                RecommendedAgeTo = template.RecommendedAgeTo,
+                TemplateType = template.TemplateType,
+                CreatedAt = template.CreatedAt
+            };
+
+            return _response.Success(response, "Recommended age range updated successfully");
+        }
+
+        // Tasks with no recommended range (null) are treated as suitable for every age.
+        private static IQueryable<TaskTemplateBase> ApplyAgeFilter(IQueryable<TaskTemplateBase> query, int? age)
+        {
+            if (!age.HasValue)
+                return query;
+
+            return query.Where(t =>
+                (t.RecommendedAgeFrom <= age.Value) &&
+                (t.RecommendedAgeTo >= age.Value));
+        }
+
+        private async Task<int?> GetParentActiveChildAgeAsync(string parentId)
+        {
+            var parent = await _context.Parents
+                .Include(p => p.ActiveChild)
+                .AsNoTracking()
+                .FirstOrDefaultAsync(p => p.Id == parentId);
+
+            return parent?.ActiveChild?.Age;
         }
     }
 }

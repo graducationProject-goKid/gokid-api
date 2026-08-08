@@ -205,21 +205,21 @@ namespace GoKidAPI.Services.Classes
             string classId,
             AssignSupervisorToClassRequest request)
         {
-            var institution = await _context.InstitutionAdmins
+            var institutionAdmin = await _context.InstitutionAdmins
                 .FirstOrDefaultAsync(i => i.Id == adminUserId);
 
-            if (institution == null)
+            if (institutionAdmin == null)
                 return _response.NotFound<SupervisorAssignmentResponse>("No institution found for this admin");
 
             var classEntity = await _context.Classes
-                .FirstOrDefaultAsync(c => c.Id == classId && c.InstitutionId == institution.Id && !c.IsDeleted);
+                .FirstOrDefaultAsync(c => c.Id == classId && c.InstitutionId == institutionAdmin.InstitutionId && !c.IsDeleted);
 
             if (classEntity == null)
                 return _response.NotFound<SupervisorAssignmentResponse>("Class not found or does not belong to your institution");
 
             var supervisor = await _context.Supervisors
                 .Include(s => s.AppUser)
-                .FirstOrDefaultAsync(s => s.Id == request.SupervisorId && s.InstitutionId == institution.Id && !s.IsDeleted);
+                .FirstOrDefaultAsync(s => s.Id == request.SupervisorId && s.InstitutionId == institutionAdmin.InstitutionId && !s.IsDeleted);
 
             if (supervisor == null)
                 return _response.NotFound<SupervisorAssignmentResponse>("Supervisor not found or does not belong to your institution");
@@ -253,7 +253,7 @@ namespace GoKidAPI.Services.Classes
 
             // Send notification to the supervisor about the assignment
             await _notificationService.SendAsync(
-                supervisor.AppUserId,
+                supervisor.Id,
                 NotificationType.SupervisorAssignedToClass,
                 "Class Assigned",
                 $"You have been assigned as the supervisor of {classEntity.Name}.",
@@ -308,7 +308,7 @@ namespace GoKidAPI.Services.Classes
             await _context.SaveChangesAsync();
 
             await _notificationService.SendAsync(
-                userId: assignment.SupervisorId,
+                userId: assignment.Supervisor.Id,
                 type: NotificationType.SupervisorUnassignedFromClass,
                 title: "Class Unassigned",
                 body: $"You have been removed as the supervisor of '{assignment.Class.Name}'.",
@@ -455,7 +455,7 @@ namespace GoKidAPI.Services.Classes
 
             var supervisorUserIds = await _context.ClassSupervisors
                 .Where(cs => cs.ClassId == classId && !cs.IsDeleted)
-                .Select(cs => cs.Supervisor.AppUserId)
+                .Select(cs => cs.Supervisor.Id)
                 .ToListAsync();
 
             foreach (var supervisorUserId in supervisorUserIds)
@@ -510,7 +510,7 @@ namespace GoKidAPI.Services.Classes
 
             var supervisorUserIds = await _context.ClassSupervisors
                  .Where(cs => cs.ClassId == classId && !cs.IsDeleted)
-                 .Select(cs => cs.Supervisor.AppUserId)
+                 .Select(cs => cs.Supervisor.Id)
                  .ToListAsync();
 
 
@@ -540,23 +540,64 @@ namespace GoKidAPI.Services.Classes
         }
 
         public async Task<Response<PaginatedList<InstitutionChildResponse>>> GetInstitutionChildrenAsync(
-            string adminUserId,
+            string userId,
+            string userRole,
             int pageNumber,
             int pageSize,
             string? search = null,
             string? classId = null)
         {
-            var institution = await _context.Institutions
-                .FirstOrDefaultAsync(i => i.InstitutionAdminId == adminUserId);
+            string? institutionId = null;
+            List<string>? supervisorClassIds = null;
 
-            if (institution == null)
-                return _response.NotFound<PaginatedList<InstitutionChildResponse>>(
-                    "No institution found for this admin");
+            if (userRole == "InstitutionAdmin")
+            {
+                var institution = await _context.Institutions
+                    .FirstOrDefaultAsync(i => i.InstitutionAdminId == userId);
+
+                if (institution == null)
+                    return _response.NotFound<PaginatedList<InstitutionChildResponse>>(
+                        "No institution found for this admin");
+
+                institutionId = institution.Id;
+            }
+            else if (userRole == "Supervisor")
+            {
+                var supervisor = await _context.Supervisors.Include(s=> s.AppUser)
+                    .FirstOrDefaultAsync(s => s.Id == userId && !s.IsDeleted);
+
+                if (supervisor == null)
+                    return _response.NotFound<PaginatedList<InstitutionChildResponse>>(
+                        "Supervisor not found");
+
+                institutionId = supervisor.InstitutionId;
+
+                // جيب الكلاسات بتاعته بس
+                supervisorClassIds = await _context.ClassSupervisors
+                    .Where(cs => cs.SupervisorId == supervisor.Id && !cs.IsDeleted)
+                    .Select(cs => cs.ClassId)
+                    .ToListAsync();
+
+                // لو بعت classId تحقق إنه من الكلاسات بتاعته
+                if (!string.IsNullOrWhiteSpace(classId) && !supervisorClassIds.Contains(classId))
+                    return _response.Forbidden<PaginatedList<InstitutionChildResponse>>(
+                        "You do not have access to this class");
+            }
+            else
+            {
+                return _response.Forbidden<PaginatedList<InstitutionChildResponse>>(
+                    "You do not have permission to view this");
+            }
 
             var query = _context.Childrens
                 .Include(c => c.Class)
                 .Include(c => c.Level)
-                .Where(c => c.InstitutionId == institution.Id && !c.IsDeleted);
+                .Where(c => c.InstitutionId == institutionId && !c.IsDeleted);
+
+            // الـ Supervisor يشوف أطفال كلاساته بس
+            if (supervisorClassIds != null)
+                query = query.Where(c => c.ClassId != null
+                                       && supervisorClassIds.Contains(c.ClassId));
 
             // فلتر بالاسم
             if (!string.IsNullOrWhiteSpace(search))

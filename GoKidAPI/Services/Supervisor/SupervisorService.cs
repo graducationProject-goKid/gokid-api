@@ -40,9 +40,9 @@ namespace GoKidAPI.Services.Supervisor
 
         public async Task<Response<List<SupervisorAdventureListResponse>>> GetMyAdventuresAsync(string supervisorUserId)
         {
-            // جيب الـ Supervisor entity من الـ AppUserId
+            // جيب الـ Supervisor entity من الـ Id (shared PK with AppUser)
             var supervisor = await _context.Supervisors
-                .FirstOrDefaultAsync(s => s.AppUserId == supervisorUserId && !s.IsDeleted);
+                .FirstOrDefaultAsync(s => s.Id == supervisorUserId && !s.IsDeleted);
 
             if (supervisor == null)
                 return _response.NotFound<List<SupervisorAdventureListResponse>>("Supervisor not found");
@@ -80,7 +80,7 @@ namespace GoKidAPI.Services.Supervisor
                 // عدد التاسكات اللي في حالة Pending review (submitted لكن ملقتش review لسه)
                 PendingReviewsCount = _context.ChildAdventureTasks
                     .Count(cat => cat.WeeklyAdventureId == wa.Id
-                               && cat.Status == AdventureChildTaskStatus.Completed
+                               && cat.Status == AdventureChildTaskStatus.Pending
                                && cat.IsApproved == null
                                && cat.EvidenceUrl != null)
             }).ToList();
@@ -457,7 +457,7 @@ namespace GoKidAPI.Services.Supervisor
         public async Task<Response<List<SupervisorClassResponse>>> GetMyClassesAsync(string supervisorUserId)
         {
             var supervisor = await _context.Supervisors
-                .FirstOrDefaultAsync(s => s.AppUserId == supervisorUserId && !s.IsDeleted);
+                .FirstOrDefaultAsync(s => s.Id == supervisorUserId && !s.IsDeleted);
 
             if (supervisor == null)
                 return _response.NotFound<List<SupervisorClassResponse>>("Supervisor not found");
@@ -473,7 +473,7 @@ namespace GoKidAPI.Services.Supervisor
                 .Select(cs => new SupervisorClassResponse
                 {
                     ClassId = cs.Class.Id,
-                    ClassName = cs.Class.Name,
+                    Name = cs.Class.Name,
                     InstitutionName = cs.Class.Institution.Name,
                     ChildrenCount = cs.Class.Children.Count(c => !c.IsDeleted),
                     ActiveAdventuresCount = cs.Class.WeeklyAdventures
@@ -492,7 +492,7 @@ namespace GoKidAPI.Services.Supervisor
             string weeklyAdventureId)
         {
             var supervisor = await _context.Supervisors
-                .FirstOrDefaultAsync(s => s.AppUserId == supervisorUserId && !s.IsDeleted);
+                .FirstOrDefaultAsync(s => s.Id == supervisorUserId && !s.IsDeleted);
 
             if (supervisor == null) return false;
 
@@ -542,7 +542,7 @@ namespace GoKidAPI.Services.Supervisor
                     SourceEntityId = childTask.WeeklyAdventureId
                 });
 
-                _ = _notificationService.SendAsync(
+                await _notificationService.SendAsync(
                     childTask.ChildId,
                     NotificationType.WeekBonus,
                     "Adventure Complete!",

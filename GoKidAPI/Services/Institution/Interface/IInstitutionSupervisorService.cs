@@ -1,5 +1,7 @@
 ﻿using GoKidAPI.DTO.InstitutionAdmin.Supervisor.Requests;
 using GoKidAPI.DTO.InstitutionAdmin.Supervisor.Responses;
+using GoKidAPI.DTO.Supervisor.Requests;
+using GoKidAPI.DTO.Supervisor.Responses;
 using GoKidAPI.Shared;
 
 namespace GoKidAPI.Services.Institution.Interface
@@ -17,6 +19,15 @@ namespace GoKidAPI.Services.Institution.Interface
         Task<Response<SupervisorCreatedResponse>> CreateSupervisorAsync(
             string currentAdminUserId,
             CreateSupervisorRequest request);
+
+        Task<Response<SupervisorUpdatedResponse>> UpdateSupervisorAsync(
+    string currentAdminUserId,
+    string supervisorId,
+    UpdateSupervisorRequest request);
+
+        Task<Response<object>> DeleteSupervisorAsync(
+            string currentAdminUserId,
+            string supervisorId);
 
     }
 }

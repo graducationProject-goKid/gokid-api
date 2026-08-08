@@ -98,7 +98,7 @@ namespace GoKidAPI.Services.LevelProgression
         {
             var supervisorUserIds = await _context.ClassSupervisors
                 .Where(cs => cs.ClassId == classId && !cs.IsDeleted)
-                .Select(cs => cs.Supervisor.AppUserId)
+                .Select(cs => cs.Supervisor.Id)
                 .ToListAsync();
 
             foreach (var supervisorUserId in supervisorUserIds)

@@ -8,7 +8,8 @@
         public string DisplayName { get; set; } = null!;
         public string Email { get; set; } = null!;
         public string UserType { get; set; }
-
+        public string? ProfileImageUrl { get; set; }
+        
         // For child
         public string? ChildId { get; set; }
         public string? ParentId { get; set; }

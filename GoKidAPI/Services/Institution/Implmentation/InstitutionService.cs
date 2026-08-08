@@ -1,4 +1,4 @@
-using GoKidAPI.Data;
+﻿using GoKidAPI.Data;
 using GoKidAPI.DTO.Institution.Requests;
 using GoKidAPI.DTO.Institution.Responses;
 using GoKidAPI.Entity.Account.Identity;
@@ -58,6 +58,9 @@ namespace GoKidAPI.Services.Institution.Implmentation
                 DisplayName = request.AdminFullName,
                 UserType = UserType.InstitutionAdmin,
                 EmailConfirmed = true,
+                PhoneNumber = request.PhoneNumber,
+                CreatedAt = DateTime.UtcNow,
+                
             };
 
             var createResult = await _userManager.CreateAsync(user, password);
@@ -255,11 +258,14 @@ namespace GoKidAPI.Services.Institution.Implmentation
                     Country = i.Country,
                     LogoUrl = i.LogoUrl,
                     AdminName = i.Admin.AppUser.DisplayName ?? i.Admin.AppUser.Email ?? "",
-                    AdminEmail = i.Admin.AppUser.Email ?? "",
+                    AdminEmail = i.Email ?? "",
                     ClassCount = i.Classes.Count(c => !c.IsDeleted),
                     StudentCount = i.EnrolledChildren.Count(c => !c.IsDeleted),
                     SupervisorCount = i.Supervisors.Count(s => !s.IsDeleted),
-                    CreatedAt = i.CreatedAt
+                    CreatedAt = i.CreatedAt,
+                    AdminPhoneNumber = i.PhoneNumber ?? "",
+                    Website = i.Website
+
                 })
                 .ToListAsync();
 
@@ -270,47 +276,64 @@ namespace GoKidAPI.Services.Institution.Implmentation
 
         public async Task<Response<InstitutionDetailsResponse>> GetInstitutionDetailsAsync(string institutionId)
         {
-            var institution = await _context.Institutions
-                .Include(i => i.Admin).ThenInclude(a => a.AppUser)
-                .Include(i => i.Classes).ThenInclude(c => c.Children)
-                .Include(i => i.Classes).ThenInclude(c => c.Supervisors)
-                .Include(i => i.EnrolledChildren)
-                .Include(i => i.Supervisors).ThenInclude(s => s.AppUser)
-                .Include(i => i.Supervisors).ThenInclude(s => s.SupervisedClasses)
-                .FirstOrDefaultAsync(i => i.Id == institutionId && !i.IsDeleted);
+            var details = await _context.Institutions
+                .AsNoTracking()
+                .Where(i => i.Id == institutionId && !i.IsDeleted)
+                .Select(i => new InstitutionDetailsResponse
+                {
+                    Id = i.Id,
+                    Name = i.Name,
+                    Code = i.Code,
+                    PhoneNumber = i.PhoneNumber,
+                    Email = i.Email,
+                    Address = i.Address,
+                    City = i.City,
+                    Country = i.Country,
+                    LogoUrl = i.LogoUrl,
+                    Website = i.Website,
+                    Description = i.Description,
 
-            if (institution == null)
+                    AdminId = i.Admin.Id,
+                    AdminName = i.Admin.AppUser.DisplayName ?? i.Admin.AppUser.Email ?? "",
+                    AdminEmail = i.Admin.AppUser.Email ?? "",
+
+                    ClassCount = i.Classes.Count(c => !c.IsDeleted),
+                    StudentCount = i.EnrolledChildren.Count(c => !c.IsDeleted),
+                    SupervisorCount = i.Supervisors.Count(s => !s.IsDeleted),
+
+                    CreatedAt = i.CreatedAt,
+
+                    Supervisors = i.Supervisors
+                        .Where(s => !s.IsDeleted)
+                        .Select(s => new SupervisorSummary
+                        {
+                            Id = s.Id,
+                            FullName = s.AppUser.DisplayName ?? s.AppUser.Email ?? "",
+                            Email = s.AppUser.Email ?? "",
+                            AvatarUrl = s.AppUser.AvatarUrl,
+                            AssignedClassesCount = s.SupervisedClasses.Count(sc => !sc.IsDeleted)
+                        })
+                        .ToList(),
+
+                    Classes = i.Classes
+                        .Where(c => !c.IsDeleted)
+                        .Select(c => new ClassSummary
+                        {
+                            Id = c.Id,
+                            Name = c.Name,
+                            ChildrenCount = c.Children.Count(ch => !ch.IsDeleted),
+                            SupervisorsCount = c.Supervisors.Count(s => !s.IsDeleted),
+                            CreatedAt = c.CreatedAt
+                        })
+                        .ToList()
+                })
+                .FirstOrDefaultAsync();
+
+            if (details == null)
                 return _response.NotFound<InstitutionDetailsResponse>("Institution not found.");
-
-            var details = MapToDetails(institution, institution.Admin, institution.Admin.AppUser);
-
-            details.Supervisors = institution.Supervisors
-                .Where(s => !s.IsDeleted)
-                .Select(s => new SupervisorSummary
-                {
-                    Id = s.Id,
-                    FullName = s.AppUser.DisplayName ?? s.AppUser.Email ?? "",
-                    Email = s.AppUser.Email ?? "",
-                    AvatarUrl = s.AppUser.AvatarUrl,
-                    AssignedClassesCount = s.SupervisedClasses?.Count(sc => !sc.IsDeleted) ?? 0
-                })
-                .ToList();
-
-            details.Classes = institution.Classes
-                .Where(c => !c.IsDeleted)
-                .Select(c => new ClassSummary
-                {
-                    Id = c.Id,
-                    Name = c.Name,
-                    ChildrenCount = c.Children?.Count(ch => !ch.IsDeleted) ?? 0,
-                    SupervisorsCount = c.Supervisors?.Count(sc => !sc.IsDeleted) ?? 0,
-                    CreatedAt = c.CreatedAt
-                })
-                .ToList();
 
             return _response.Success(details, "Institution details retrieved successfully.");
         }
-
         public async Task<Response<SupervisorProfileResponse>> GetSupervisorProfileAsync(
             string institutionId, string supervisorId)
         {

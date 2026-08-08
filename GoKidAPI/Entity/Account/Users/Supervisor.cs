@@ -9,8 +9,7 @@ namespace GoKidAPI.Entity.Account.Users
 {
     public class Supervisor : AuditableEntity
     {
-        public string Id { get; set; } = Guid.NewGuid().ToString();
-        public string AppUserId { get; set; } = null!;
+        public string Id { get; set; } = null!;       // shared PK == AppUser.Id
         public AppUser AppUser { get; set; } = null!;
 
         public string InstitutionId { get; set; } = null!;

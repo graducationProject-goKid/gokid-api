@@ -134,6 +134,13 @@ namespace GoKidAPI.Data
                 .HasForeignKey(s => s.InstitutionId)
                 .OnDelete(DeleteBehavior.Restrict);
 
+            // Supervisor shares PK with AspNetUsers (same as Parent / Child / InstitutionAdmin)
+            modelBuilder.Entity<Supervisor>()
+                .HasOne(s => s.AppUser)
+                .WithOne()
+                .HasForeignKey<Supervisor>(s => s.Id)
+                .OnDelete(DeleteBehavior.Cascade);
+
         }
 
         public DbSet<UserRefreshToken> UserRefreshTokens { get; set; }

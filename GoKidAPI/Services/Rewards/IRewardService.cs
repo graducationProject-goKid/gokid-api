@@ -8,7 +8,10 @@ namespace GoKidAPI.Services.Rewards
         Task<Shared.Response<RewardResponse>> CreateRewardAsync(string parentId, CreateRewardRequest request);
         Task<Shared.Response<object>> DeleteRewardAsync(string parentId, string rewardId);
         Task<Shared.Response<List<RewardResponse>>> GetMyRewardsAsync(string parentId);
-        Task<Shared.Response<RewardResponse>> GiveRewardToChildAsync(string parentId, string rewardId);
+        Task<Shared.Response<RewardResponse>> GiveRewardToChildAsync(
+            string parentId,
+            string rewardId,
+            GiveRewardRequest request);
         Task<Shared.Response<List<RewardResponse>>> GetChildRewardsAsync(string childId);
     }
 }

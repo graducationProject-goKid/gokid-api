@@ -27,6 +27,7 @@ namespace GoKidAPI.Controllers
         private readonly IValidator<CreateTextQuestionRequest> _textQuestionValidator;
         private readonly IValidator<CreateVoiceQuestionRequest> _voiceQuestionValidator;
         private readonly IValidator<CreateEvidenceSubmissionRequest> _evidenceSubmissionValidator;
+        private readonly IValidator<UpdateRecommendedAgeRequest> _updateRecommendedAgeValidator;
 
         private readonly ResponseHandler _response;
 
@@ -39,6 +40,7 @@ namespace GoKidAPI.Controllers
             IValidator<CreateTextQuestionRequest> textQuestionValidator,
             IValidator<CreateVoiceQuestionRequest> voiceQuestionValidator,
             IValidator<CreateEvidenceSubmissionRequest> evidenceSubmissionValidator,
+            IValidator<UpdateRecommendedAgeRequest> updateRecommendedAgeValidator,
             ResponseHandler response,
             ITaskTemplateQueryService taskTemplateQueryService)
         {
@@ -50,6 +52,7 @@ namespace GoKidAPI.Controllers
             _textQuestionValidator = textQuestionValidator;
             _voiceQuestionValidator = voiceQuestionValidator;
             _evidenceSubmissionValidator = evidenceSubmissionValidator;
+            _updateRecommendedAgeValidator = updateRecommendedAgeValidator;
 
             _response = response;
             _taskTemplateQueryService = taskTemplateQueryService;
@@ -247,10 +250,36 @@ namespace GoKidAPI.Controllers
     public async Task<IActionResult> GetAll([FromQuery] TaskRequestFilters filters)
     {
         var role = User.FindFirst(ClaimTypes.Role)?.Value;
+        var requesterId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
 
-        var result = await _taskTemplateQueryService.GetAllAsync(filters, role);
+        var result = await _taskTemplateQueryService.GetAllAsync(filters, role, requesterId);
 
         return Ok(result);
+    }
+
+    /// <summary>
+    /// Update the recommended age range of a task template
+    /// </summary>
+    /// <remarks>
+    /// Platform Admin sets/edits the recommended age range (e.g. 5-7 years) used to suggest
+    /// age-appropriate tasks when assigning to a child or building an Adventure for a class.
+    /// </remarks>
+    /// <response code="200">Recommended age range updated successfully</response>
+    /// <response code="400">Validation error (RecommendedAgeFrom must be &lt;= RecommendedAgeTo)</response>
+    /// <response code="404">Task template not found</response>
+    [HttpPatch("{id}/recommended-age")]
+    [ProducesResponseType(typeof(Response<TaskTemplateListItemResponse>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> UpdateRecommendedAge(string id, [FromBody] UpdateRecommendedAgeRequest request)
+    {
+        var validationResult = await _updateRecommendedAgeValidator.ValidateAsync(request);
+        if (!validationResult.IsValid)
+        {
+            var errors = validationResult.Errors.Select(e => e.ErrorMessage);
+            return BadRequest(_response.BadRequest<object>(string.Join(", ", errors)));
+        }
+
+        var result = await _taskTemplateQueryService.UpdateRecommendedAgeAsync(id, request);
+        return StatusCode((int)result.StatusCode, result);
     }
 
     /// <summary>
@@ -276,9 +305,10 @@ namespace GoKidAPI.Controllers
         public async Task<IActionResult> GetBySubCategory(
             string subCategoryId,
             [FromQuery] DifficultyLevel? difficulty,
+            [FromQuery] int? recommendedAge,
             [FromQuery] RequestFilters<TaskSortingColumn> filters)
         {
-            var result = await _taskTemplateQueryService.GetBySubCategoryAsync(subCategoryId, difficulty, filters);
+            var result = await _taskTemplateQueryService.GetBySubCategoryAsync(subCategoryId, difficulty, filters, recommendedAge);
             return StatusCode((int)result.StatusCode, result);
         }
 
@@ -286,9 +316,10 @@ namespace GoKidAPI.Controllers
         [ProducesResponseType(typeof(Shared.Response<PaginatedList<TaskTemplateListItemResponse>>), StatusCodes.Status200OK)]
         public async Task<IActionResult> GetByCategory(
             string categoryId,
+            [FromQuery] int? recommendedAge,
             [FromQuery] RequestFilters<TaskSortingColumn> filters)
         {
-            var result = await _taskTemplateQueryService.GetByCategoryAsync(categoryId, filters);
+            var result = await _taskTemplateQueryService.GetByCategoryAsync(categoryId, filters, recommendedAge);
             return StatusCode((int)result.StatusCode, result);
         }
     }

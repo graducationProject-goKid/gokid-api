@@ -15,6 +15,7 @@ using GoKidAPI.Services.ImageUploading;
 using GoKidAPI.Services.Institution.Implmentation;
 using GoKidAPI.Services.Institution.Interface;
 using GoKidAPI.Services.Dashboard;
+using GoKidAPI.Services.OAuth;
 using GoKidAPI.Services.LevelProgression;
 using GoKidAPI.Services.Levels;
 using GoKidAPI.Services.OTP;
@@ -286,6 +287,7 @@ namespace GoKidAPI.Extensions
             services.AddScoped<IPlatformDashboardService, PlatformDashboardService>();
             services.AddScoped<IInstitutionDashboardService, InstitutionDashboardService>();
             services.AddScoped<ISupervisorDashboardService, SupervisorDashboardService>();
+            services.AddScoped<IGoogleAuthService, GoogleAuthService>();
 
             return services;
         }

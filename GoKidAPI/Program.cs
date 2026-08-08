@@ -10,6 +10,7 @@ using GoKidAPI.Hubs;
 using GoKidAPI.InfrastructreManage.Options;
 using GoKidAPI.Jobs;
 using GoKidAPI.Seeder;
+using GoKidAPI.Seeder.Demo;
 
 using Google;
 
@@ -136,6 +137,21 @@ namespace GoKidAPI
                 await LevelSeeder.SeedAsync(context);
 
                 await UserSeeder.SeedAsync(userManager);
+
+                if (builder.Configuration.GetValue<bool>("Seeding:EnableDemoData"))
+                {
+                    await DemoTaskTemplateSeeder.SeedAsync(context);
+                    await DemoInstitutionSeeder.SeedAsync(context, userManager);
+                    await DemoClassSeeder.SeedAsync(context);
+                    await DemoSupervisorSeeder.SeedAsync(context, userManager);
+                    await DemoParentChildSeeder.SeedAsync(context, userManager);
+                    await DemoGiftRewardSeeder.SeedAsync(context);
+                    await DemoDailyTaskSeeder.SeedAsync(context);
+                    await DemoAdventureSeeder.SeedAsync(context);
+                    await DemoWeeklyAdventureSeeder.SeedAsync(context);
+                    await DemoPointsRollupSeeder.SeedAsync(context);
+                    await DemoNotificationSeeder.SeedAsync(context);
+                }
             }
             #endregion
             //app.UseResponseCaching();
@@ -166,6 +182,7 @@ namespace GoKidAPI
                 "daily-task-assignment",
                 job => job.AssignDailyTasksAsync(),
                 Cron.Daily(0, 0) // 12 AM UTC كل يوم
+                                 //Cron.Minutely()
             );
 
             RecurringJob.AddOrUpdate<AdventureAssignmentJob>(

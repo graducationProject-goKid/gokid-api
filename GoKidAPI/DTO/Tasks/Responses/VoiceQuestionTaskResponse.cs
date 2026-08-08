@@ -14,6 +14,8 @@ namespace GoKidAPI.DTO.Tasks.Responses
         public string SubCategoryNameEn { get; set; } = null!;
         public DifficultyLevel Difficulty { get; set; }
         public int BasePoints { get; set; }
+        public int? RecommendedAgeFrom { get; set; }
+        public int? RecommendedAgeTo { get; set; }
         public TaskTemplateType TemplateType => TaskTemplateType.VoiceQuestion;
         public DateTime CreatedAt { get; set; }
 

@@ -64,6 +64,13 @@ namespace GoKidAPI.Services.ParentTasks
                 if (template == null)
                     return _response.NotFound<AssignTaskResponse>("Task template not found");
 
+                var childAge = parent.ActiveChild.Age;
+                if ((template.RecommendedAgeFrom.HasValue && childAge < template.RecommendedAgeFrom.Value) ||
+                    (template.RecommendedAgeTo.HasValue && childAge > template.RecommendedAgeTo.Value))
+                {
+                    return _response.BadRequest<AssignTaskResponse>("This task is not recommended for your child's age");
+                }
+
                 // Check if the task is already assigned to the child by this parent, if yes, prevent duplicate assignment
                 // if the existing task is not yet completed and due date is either null or in the future
                 var alreadyAssigned = await _context.ChildTasks
@@ -164,7 +171,7 @@ namespace GoKidAPI.Services.ParentTasks
 
                 await _levelProgression.CheckAndUpdateLevelAsync(task.ChildId, parentId);
 
-                _ = _notificationService.SendAsync(
+                await _notificationService.SendAsync(
                     task.ChildId,
                     NotificationType.TaskApproved,
                     "Task Approved!",
@@ -190,7 +197,7 @@ namespace GoKidAPI.Services.ParentTasks
                     ? request.RejectionReason[..80] + "…"
                     : request.RejectionReason;
 
-                _ = _notificationService.SendAsync(
+                await _notificationService.SendAsync(
                     task.ChildId,
                     NotificationType.TaskRejected,
                     "Task Needs Changes",
@@ -230,7 +237,7 @@ namespace GoKidAPI.Services.ParentTasks
                 .ThenInclude(c=>c.Category)
                 .Include(ct => ct.Child)
                 .Where(ct => childIds.Contains(ct.ChildId)
-                          //&& ct.Source == TaskSource.Parent  // بس اللي الـ Parent أداها
+                          && ct.Source == TaskSource.Parent  // بس اللي الـ Parent أداها
                           && !ct.IsDeleted);
 
             // فلترة بالـ Status لو موجود
@@ -251,6 +258,7 @@ namespace GoKidAPI.Services.ParentTasks
                     TaskTemplateId = ct.TaskTemplateId,
                     TitleAr = ct.Template.TitleAr,
                     TitleEn = ct.Template.TitleEn,
+                    DescriptionEn = ct.Template.DescriptionEn,
                     IconUrl = ct.Template.IconUrl,
                     Points = ct.Template.BasePoints,
                     Status = ct.Status,

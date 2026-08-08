@@ -10,6 +10,8 @@ namespace GoKidAPI.DTO.Institution.Responses
         public string? LogoUrl { get; set; }
         public string AdminName { get; set; } = null!;
         public string AdminEmail { get; set; } = null!;
+        public string AdminPhoneNumber { get; set; } = null!;
+        public string? Website { get; set; }
         public int ClassCount { get; set; }
         public int StudentCount { get; set; }
         public int SupervisorCount { get; set; }

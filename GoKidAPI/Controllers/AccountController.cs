@@ -103,7 +103,7 @@ namespace GoKidAPI.Controllers
         /// Logout (invalidate all refresh tokens)
         /// </summary>
         [HttpPost("logout")]
-        [Authorize] // Parent only
+        //[Authorize] // Parent only
         public async Task<IActionResult> Logout()
         {
             var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
@@ -124,7 +124,7 @@ namespace GoKidAPI.Controllers
         /// <response code="201">Child created + code generated</response>
         /// <response code="400">Already has a child</response>
         [HttpPost("child")]
-        [Authorize(Roles = "Parent")]
+        //[Authorize(Roles = "Parent")]
         public async Task<IActionResult> CreateChild([FromForm] CreateChildRequest request)
         {
             var parentId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
@@ -178,7 +178,7 @@ namespace GoKidAPI.Controllers
         /// Parent: returns parent info + active child summary.
         /// Child: returns child info with class and institution.
         /// </summary>
-        [Authorize(Roles = "Parent,Child")]
+        //[Authorize(Roles = "Parent,Child")]
         [HttpGet("profile")]
         public async Task<IActionResult> GetProfile()
         {
