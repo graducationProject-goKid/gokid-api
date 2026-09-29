@@ -386,18 +386,18 @@ erDiagram
     Child ||--o{ PointsTransaction : "earns / spends"
     Child ||--o{ ChildGift : "purchases"
     Gift ||--o{ ChildGift : "purchased as"
-    Institution ||--o{ Class : "contains"
+    Institution ||--o{ SchoolClass : "contains"
     Institution ||--o{ Supervisor : "employs"
     Institution ||--o{ Child : "enrolls"
     InstitutionAdmin ||--o| Institution : "managed by"
-    Class ||--o{ ClassSupervisor : "supervised by"
+    SchoolClass ||--o{ ClassSupervisor : "supervised by"
     Adventure ||--o{ WeeklyAdventure : "assigned as"
-    Class ||--o{ WeeklyAdventure : "receives"
+    SchoolClass ||--o{ WeeklyAdventure : "receives"
     WeeklyAdventure ||--o{ ChildAdventureTask : "generates"
     Child ||--o{ ChildAdventureTask : "completes"
 ```
 
-Highlights:
+Highlights (the class entity is drawn as `SchoolClass` in the diagram only because `class` is a reserved word in Mermaid):
 
 - `Child.Id`, `Parent.Id`, and `InstitutionAdmin.Id` equal the corresponding `AppUser.Id` (shared primary key), so JWT claims always match the profile record.
 - A **Child** has a 6-digit `RegistrationCode` and a `LevelId` foreign key updated by `LevelProgressionService`.
