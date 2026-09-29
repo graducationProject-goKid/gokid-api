@@ -7,7 +7,7 @@
 ![.NET 8](https://img.shields.io/badge/.NET-8.0-512BD4?logo=dotnet&logoColor=white)
 ![ASP.NET Core](https://img.shields.io/badge/ASP.NET%20Core-Web%20API-512BD4)
 ![SQL Server](https://img.shields.io/badge/SQL%20Server-EF%20Core%208-CC2927?logo=microsoftsqlserver&logoColor=white)
-![Redis](https://img.shields.io/badge/Redis-cache-DC382D?logo=redis&logoColor=white)
+![Redis](https://img.shields.io/badge/Redis-OTP%20store-DC382D?logo=redis&logoColor=white)
 ![SignalR](https://img.shields.io/badge/SignalR-real--time-512BD4)
 ![Hangfire](https://img.shields.io/badge/Hangfire-background%20jobs-1E3A5F)
 ![Firebase](https://img.shields.io/badge/Firebase-FCM-FFCA28?logo=firebase&logoColor=black)
