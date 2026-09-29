@@ -421,6 +421,32 @@ Configure the following in `appsettings.json`:
 | DELETE | `/{institutionId}` | Delete institution | PlatformAdmin |
 | PATCH | `/{institutionId}/logo` | Upload institution logo | InstitutionAdmin |
 
+### Social Login — `/api/auth`
+
+| Method | Endpoint | Description | Auth |
+|---|---|---|---|
+| POST | `/google` | Sign in with a Google ID token; a Parent account is auto-created on first login, JWT + refresh tokens are issued | Public |
+
+### Institution Supervisors — `/api/institutionsupervisor`
+
+| Method | Endpoint | Description |
+|---|---|---|
+| GET | `/supervisors` | Paginated, searchable list of supervisors (scoped to the admin's institution) |
+| POST | `/` | Create a supervisor |
+| PUT | `/{supervisorId}` | Update a supervisor |
+| DELETE | `/{supervisorId}` | Delete a supervisor |
+
+### Dashboards
+
+Role-specific aggregate statistics, cached in memory. Each has a `DELETE .../cache` endpoint to force a refresh.
+
+| Method | Endpoint | Role | Cache |
+|---|---|---|---|
+| GET | `/api/institution/dashboard` | InstitutionAdmin | 5 min per institution |
+| GET | `/api/supervisor/dashboard` | Supervisor | 3 min per supervisor |
+| GET | `/api/platform/dashboard` | PlatformAdmin | — |
+| DELETE | `/api/institution/dashboard/cache`, `/api/supervisor/dashboard/cache`, `/api/platform/dashboard/cache` | Same as above | Clears cache |
+
 ### Categories — `/api/category` & `/api/task-sub-category`
 
 Standard CRUD for task categories and subcategories (PlatformAdmin write, Auth read).
@@ -513,6 +539,11 @@ Points are awarded in three paths, all triggering a level check:
 ## Changelog
 
 ### Latest Updates
+
+#### Dashboards & Social Login
+- Added statistics dashboards for InstitutionAdmin, Supervisor and PlatformAdmin with in-memory caching
+- Added Google Sign-In (`POST /api/auth/google`)
+- Added more notification scenarios for supervisors and children
 
 #### Children Levels Feature
 - Added `Level` entity with `Id`, `Name`, `Order`, `MinPoints`, `BadgeUrl`, `BadgePublicId`
