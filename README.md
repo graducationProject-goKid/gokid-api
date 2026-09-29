@@ -218,6 +218,8 @@ Hangfire dashboard at `https://localhost:{port}/hangfire`.
 
 ## Environment Configuration
 
+> **Security note:** real credentials (DB passwords, JWT/Cloudinary/Google secrets, SMTP password, Firebase service-account key) are **never committed**. `appsettings.json`, `appsettings.Development.json` and the Firebase key file are git-ignored, and the repository history was rewritten to purge previously committed secrets (all those keys were rotated). To run locally, copy `GoKidAPI/appsettings.example.json` to `GoKidAPI/appsettings.json`, fill in your own values, and place your own Firebase service-account JSON in `GoKidAPI/` (set its name in `Firebase:CredentialFilePath`). For production prefer environment variables or `dotnet user-secrets`.
+
 Configure the following in `appsettings.json`:
 
 ```json

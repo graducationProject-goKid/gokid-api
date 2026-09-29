@@ -57,3 +57,10 @@ TestResult.xml
 nunit-*.xml
 /GoKidAPI/GoKidAPI.csproj.user
 /.gitattributes
+
+# Secrets & local files
+*firebase-adminsdk*.json
+seed_run.log
+*.csproj.user
+*.pubxml.user
+GoKidAPI/Properties/PublishProfiles/
